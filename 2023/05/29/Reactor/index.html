@@ -1,0 +1,282 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover"><title>Reactor 与 Proactor 线程模型详解 | 谈谈1974</title><meta name="author" content="nathan.yang"><meta name="copyright" content="nathan.yang"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#ffffff"><meta name="description" content="Reactor 模式Reactor模式也叫 Dispatcher模式，其基于事件驱动处理模式，基本设计思想是I&#x2F;O 复用结合线程池。下图为事件驱动处理示意图，可以看到大致流程为服务端程序监听处理多路请求传入的事件，并将事件分派给请求对应的处理线程完成处理   Reactor 模式中有 2 个关键组件：  Reactor运行在一个单独的线程中，负责监听和分发事件，分发事件给适当的 Hand">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Reactor 与 Proactor 线程模型详解">
+<meta property="og:url" content="https://yang00-74.github.io/2023/05/29/Reactor/index.html">
+<meta property="og:site_name" content="谈谈1974">
+<meta property="og:description" content="Reactor 模式Reactor模式也叫 Dispatcher模式，其基于事件驱动处理模式，基本设计思想是I&#x2F;O 复用结合线程池。下图为事件驱动处理示意图，可以看到大致流程为服务端程序监听处理多路请求传入的事件，并将事件分派给请求对应的处理线程完成处理   Reactor 模式中有 2 个关键组件：  Reactor运行在一个单独的线程中，负责监听和分发事件，分发事件给适当的 Hand">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://i.loli.net/2021/02/24/5O1day2nriDzjSu.png">
+<meta property="article:published_time" content="2023-05-29T13:26:54.000Z">
+<meta property="article:modified_time" content="2023-05-29T13:56:24.823Z">
+<meta property="article:author" content="nathan.yang">
+<meta property="article:tag" content="多线程">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://i.loli.net/2021/02/24/5O1day2nriDzjSu.png"><link rel="shortcut icon" href="/img/drogan.jpg"><link rel="canonical" href="https://yang00-74.github.io/2023/05/29/Reactor/index.html"><link rel="preconnect" href="//cdn.jsdelivr.net"/><link rel="preconnect" href="//busuanzi.ibruce.info"/><link rel="stylesheet" href="/css/index.css"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free/css/all.min.css" media="print" onload="this.media='all'"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fancyapps/ui/dist/fancybox/fancybox.min.css" media="print" onload="this.media='all'"><script>const GLOBAL_CONFIG = {
+  root: '/',
+  algolia: undefined,
+  localSearch: undefined,
+  translate: undefined,
+  noticeOutdate: undefined,
+  highlight: {"plugin":"highlighjs","highlightCopy":true,"highlightLang":true,"highlightHeightLimit":false},
+  copy: {
+    success: '复制成功',
+    error: '复制错误',
+    noSupport: '浏览器不支持'
+  },
+  relativeDate: {
+    homepage: false,
+    post: false
+  },
+  runtime: '',
+  dateSuffix: {
+    just: '刚刚',
+    min: '分钟前',
+    hour: '小时前',
+    day: '天前',
+    month: '个月前'
+  },
+  copyright: undefined,
+  lightbox: 'fancybox',
+  Snackbar: undefined,
+  source: {
+    justifiedGallery: {
+      js: 'https://cdn.jsdelivr.net/npm/flickr-justified-gallery/dist/fjGallery.min.js',
+      css: 'https://cdn.jsdelivr.net/npm/flickr-justified-gallery/dist/fjGallery.min.css'
+    }
+  },
+  isPhotoFigcaption: false,
+  islazyload: false,
+  isAnchor: false,
+  percent: {
+    toc: true,
+    rightside: true,
+  },
+  autoDarkmode: false
+}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = {
+  title: 'Reactor 与 Proactor 线程模型详解',
+  isPost: true,
+  isHome: false,
+  isHighlightShrink: false,
+  isToc: true,
+  postUpdate: '2023-05-29 21:56:24'
+}</script><noscript><style type="text/css">
+  #nav {
+    opacity: 1
+  }
+  .justified-gallery img {
+    opacity: 1
+  }
+
+  #recent-posts time,
+  #post-meta time {
+    display: inline !important
+  }
+</style></noscript><script>(win=>{
+    win.saveToLocal = {
+      set: function setWithExpiry(key, value, ttl) {
+        if (ttl === 0) return
+        const now = new Date()
+        const expiryDay = ttl * 86400000
+        const item = {
+          value: value,
+          expiry: now.getTime() + expiryDay,
+        }
+        localStorage.setItem(key, JSON.stringify(item))
+      },
+
+      get: function getWithExpiry(key) {
+        const itemStr = localStorage.getItem(key)
+
+        if (!itemStr) {
+          return undefined
+        }
+        const item = JSON.parse(itemStr)
+        const now = new Date()
+
+        if (now.getTime() > item.expiry) {
+          localStorage.removeItem(key)
+          return undefined
+        }
+        return item.value
+      }
+    }
+  
+    win.getScript = url => new Promise((resolve, reject) => {
+      const script = document.createElement('script')
+      script.src = url
+      script.async = true
+      script.onerror = reject
+      script.onload = script.onreadystatechange = function() {
+        const loadState = this.readyState
+        if (loadState && loadState !== 'loaded' && loadState !== 'complete') return
+        script.onload = script.onreadystatechange = null
+        resolve()
+      }
+      document.head.appendChild(script)
+    })
+  
+    win.getCSS = (url,id = false) => new Promise((resolve, reject) => {
+      const link = document.createElement('link')
+      link.rel = 'stylesheet'
+      link.href = url
+      if (id) link.id = id
+      link.onerror = reject
+      link.onload = link.onreadystatechange = function() {
+        const loadState = this.readyState
+        if (loadState && loadState !== 'loaded' && loadState !== 'complete') return
+        link.onload = link.onreadystatechange = null
+        resolve()
+      }
+      document.head.appendChild(link)
+    })
+  
+      win.activateDarkMode = function () {
+        document.documentElement.setAttribute('data-theme', 'dark')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#0d0d0d')
+        }
+      }
+      win.activateLightMode = function () {
+        document.documentElement.setAttribute('data-theme', 'light')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#ffffff')
+        }
+      }
+      const t = saveToLocal.get('theme')
+    
+          if (t === 'dark') activateDarkMode()
+          else if (t === 'light') activateLightMode()
+        
+      const asideStatus = saveToLocal.get('aside-status')
+      if (asideStatus !== undefined) {
+        if (asideStatus === 'hide') {
+          document.documentElement.classList.add('hide-aside')
+        } else {
+          document.documentElement.classList.remove('hide-aside')
+        }
+      }
+    
+    const detectApple = () => {
+      if(/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)){
+        document.documentElement.classList.add('apple')
+      }
+    }
+    detectApple()
+    })(window)</script><meta name="generator" content="Hexo 6.3.0"></head><body><div id="web_bg"></div><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="avatar-img is-center"><img src="https://i.loli.net/2021/02/24/5O1day2nriDzjSu.png" onerror="onerror=null;src='/img/friend_404.gif'" alt="avatar"/></div><div class="sidebar-site-data site-data is-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">9</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">7</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">5</div></a></div><hr/><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> 首页</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> 归档</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div></div></div></div><div class="post" id="body-wrap"><header class="not-top-img" id="page-header"><nav id="nav"><span id="blog-info"><a href="/" title="谈谈1974"><span class="site-name">谈谈1974</span></a></span><div id="menus"><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> 首页</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> 归档</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div></div><div id="toggle-menu"><a class="site-page" href="javascript:void(0);"><i class="fas fa-bars fa-fw"></i></a></div></div></nav></header><main class="layout" id="content-inner"><div id="post"><div id="post-info"><h1 class="post-title">Reactor 与 Proactor 线程模型详解</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">发表于</span><time class="post-meta-date-created" datetime="2023-05-29T13:26:54.000Z" title="发表于 2023-05-29 21:26:54">2023-05-29</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">更新于</span><time class="post-meta-date-updated" datetime="2023-05-29T13:56:24.823Z" title="更新于 2023-05-29 21:56:24">2023-05-29</time></span><span class="post-meta-categories"><span class="post-meta-separator">|</span><i class="fas fa-inbox fa-fw post-meta-icon"></i><a class="post-meta-categories" href="/categories/Web-%E5%9F%BA%E7%A1%80/">Web 基础</a></span></div><div class="meta-secondline"><span class="post-meta-separator">|</span><span class="post-meta-pv-cv" id="" data-flag-title="Reactor 与 Proactor 线程模型详解"><i class="far fa-eye fa-fw post-meta-icon"></i><span class="post-meta-label">阅读量:</span><span id="busuanzi_value_page_pv"><i class="fa-solid fa-spinner fa-spin"></i></span></span></div></div></div><article class="post-content" id="article-container"><h1 id="Reactor-模式"><a href="#Reactor-模式" class="headerlink" title="Reactor 模式"></a>Reactor 模式</h1><p><code>Reactor模式</code>也叫 <code>Dispatcher模式</code>，<font color=blue>其基于事件驱动处理模式，基本设计思想是I&#x2F;O 复用结合线程池</font>。下图为事件驱动处理示意图，可以看到大致流程为<font color=blue>服务端程序监听处理多路请求传入的事件，并将事件分派给请求对应的处理线程完成处理</font></p>
+<p><img src="/../images/reactor-1.png" alt="在这里插入图片描述"></p>
+<blockquote>
+<p>Reactor 模式中有 2 个关键组件：</p>
+<ol>
+<li><code>Reactor</code><br>运行在一个单独的线程中，负责监听和分发事件，分发事件给适当的 Handler 来对 IO 请求做出反应</li>
+<li><code>Handler</code><br>将自身与事件绑定，实际执行 I&#x2F;O 要完成的事件。Reactor 通过调度适当的 Handler 来响应 I&#x2F;O 事件，执行非阻塞操作</li>
+</ol>
+</blockquote>
+<p><strong>根据 Reactor 的数量和处理事件的线程数量的不同，Reactor 模式有 3 种实现</strong>：</p>
+<blockquote>
+<ol>
+<li>单 Reactor 单线程</li>
+<li>单 Reactor 多线程</li>
+<li>主从 Reactor 多线程</li>
+</ol>
+</blockquote>
+<h3 id="单-Reactor-单线程"><a href="#单-Reactor-单线程" class="headerlink" title="单 Reactor 单线程"></a>单 Reactor 单线程</h3><p>实现的示意图如下，其消息的处理流程可概括为以下几步：</p>
+<blockquote>
+<ol>
+<li>Reactor 通过 select 监控连接上的所有事件，收到事件后通过 dispatch 将其分发</li>
+<li>如果该事件是请求连接建立，则由 Acceptor 接受连接，并为其创建 Handler 处理后续事件</li>
+<li>假如不是建立连接事件，Reactor 将其分发给对应的 Handler 来响应</li>
+<li>Handler 实际处理事件，完成 read-&gt;handle-&gt;send 的业务处理流程</li>
+</ol>
+</blockquote>
+<p><img src="/../images/reactor-2.png" alt="在这里插入图片描述"></p>
+<p><code>单Reactor单线程模型</code>只是进行了代码组件的区分，整体操作还是单线程，其优缺点如下：</p>
+<blockquote>
+<ul>
+<li><code>优点</code><br>模型简单，所有处理都在一个线程中完成，没有多线程上下文切换的开销，没有进程通信及锁竞争的问题</li>
+<li><code>缺点</code></li>
+</ul>
+<ol>
+<li>只有一个线程，无法完全发挥多核 CPU 的性能，造成浪费</li>
+<li>Handler 在处理某个连接上的业务时，整个进程无法处理其他连接事件，容易导致性能瓶颈</li>
+<li>一旦 Reactor 线程意外中断或者跑飞，可能导致整个系统通信模块不可用，无法接收和处理外部消息，造成节点故障</li>
+</ol>
+<ul>
+<li><code>适用场景</code><br>客户端数量有限，业务处理非常快速，例如 Redis 就是使用单 Reactor 单线程模型</li>
+</ul>
+</blockquote>
+<h3 id="单-Reactor-多线程"><a href="#单-Reactor-多线程" class="headerlink" title="单 Reactor 多线程"></a>单 Reactor 多线程</h3><p>实现的示意图如下所示，消息处理流程可以分为以下几步：</p>
+<blockquote>
+<ol>
+<li>Reactor 通过 select 监控连接上的所有事件，收到事件后通过 dispatch 将其分发</li>
+<li>如果是请求建立连接的事件，则由 Acceptor 通过 accept 处理连接请求，然后创建一个 Handler 处理该连接，完成后续的读写事件</li>
+<li>假如不是建立连接事件，Reactor 将其分发给对应的 Handler 来响应。该实现中 Handler 只负责响应事件，read 读取数据后会将其分发给 Worker 线程池进行 handle 业务处理</li>
+<li>Worker 线程池调度线程完成实际的业务处理，并将响应结果返回给主线程 Handler，Handler 通过 send 将结果返回给请求端，完成请求响应的流程</li>
+</ol>
+</blockquote>
+<p><img src="/../images/reactor-3.png" alt="在这里插入图片描述"><br><code>单 Reactor 多线程模型</code> 相对于<code>单Reactor单线程模型</code>来说，<font color=blue>handle 业务逻辑交由线程池来处理</font>，其优缺点如下：</p>
+<blockquote>
+<ul>
+<li><code>优点</code><br>可以充分利用多核 CPU 的处理能力，使 Reactor 更专注于事件分发工作，提升整个应用的吞吐</li>
+<li><code>缺点</code></li>
+</ul>
+<ol>
+<li>多线程环境下数据共享和访问比较复杂，子线程完成业务处理后把结果传递给主线程 Handler 进行发送，需要考虑共享数据的互斥和保护机制</li>
+<li>Reactor 主线程单线程运行，承担所有事件的监听和响应，高并发场景下会成为性能瓶颈</li>
+</ol>
+</blockquote>
+<h3 id="主从-Reactor-多线程"><a href="#主从-Reactor-多线程" class="headerlink" title="主从 Reactor 多线程"></a>主从 Reactor 多线程</h3><p><code>单 Reactor 多线程模型</code>中 Reactor 在单线程中运行，高并发场景下容易成为性能瓶颈，针对这个缺点一个解决方案是<font color=blue>让 Reactor 在多线程中运行</font>，于是产生了<code>主从 Reactor 多线程模型</code>。相比第二种模型，它将 Reactor 分成两部分：</p>
+<blockquote>
+<ol>
+<li>MainReactor 只用来处理网络IO连接建立的操作，并将建立的连接指定注册到 SubReactor 上</li>
+<li>SubReactor 负责处理注册其上的连接的事件，完成业务处理，<font color=blue>通常 SubReactor 个数可与CPU个数等同</font></li>
+</ol>
+</blockquote>
+<p><code>主从 Reactor 多线程模型</code>消息处理流程可以分为以下几个步骤：</p>
+<blockquote>
+<ol>
+<li>Reactor 主线程 MainReactor 通过 select <font color=blue>监控建立连接的事件</font>，收到事件后通过 Acceptor 接收，处理建立连接事件</li>
+<li>Acceptor 建立连接后，MainReactor 将连接分配给 Reactor 子线程 SubReactor 进行处理。SubReactor 会将该连接加入连接队列进行监听，并创建一个 Handler 用于处理该连接上的读写事件</li>
+<li>当有读写事件发生时，SubReactor 调用连接对应的 Handler 进行响应，Handler 读取数据后将其分发给 Worker 线程池进行 handle 业务处理</li>
+<li>Worker 线程池调度线程完成实际的业务处理，并将响应结果返回给 SubReactor 的 Handler，Handler 通过 send 将结果返回给请求端，完成请求响应的流程</li>
+</ol>
+</blockquote>
+<p><img src="/../images/reactor-4.png" alt="在这里插入图片描述"><br>这种 Reactor 实现模型使用非常广泛，比较著名的如 Kafka 主从多线程模型的支持，其主要优点如下：</p>
+<blockquote>
+<ol>
+<li>MainReactor 与 SubReactor 的数据交互简单，MainReactor 只需把新连接交给 SubReactor，SubReactor 无需返回数据</li>
+<li>MainReactor 与 SubReactor 主从职责明确，MainReactor只负责接收新连接，SubReactor 负责完成后续的业务处理</li>
+</ol>
+</blockquote>
+<h1 id="Proactor-模式"><a href="#Proactor-模式" class="headerlink" title="Proactor 模式"></a>Proactor 模式</h1><p>在 Reactor 模式中，Reactor 在用户进程通过 select 轮询等待某个事件的发生，然后将这个事件分发给 Handler，由 Handler 来做实际的读写操作。<font color=blue>这个过程中读写操作依然是同步的，如果把 I&#x2F;O 操作改为异步，即交给操作系统来完成，就能进一步提升性能，这就是异步网络模型 <code>Proactor</code></font></p>
+<p><code>Proactor模式</code>也是基于事件驱动模型，不过 Proactor 不关注<code>读取就绪事件</code>，而是关注<code>读取完成事件</code>，因为异步IO都是操作系统将数据读写到指定的缓冲区，应用程序直接从缓冲区取用即可。以下为示意图，其各个模块组成如下：</p>
+<blockquote>
+<ol>
+<li><code>Procator Initiator</code><br>负责创建 Procator 和 Handler，并将 Procator 和 Handler 注册到内核</li>
+<li><code>Asynchronous Operation Processor</code><br>负责处理注册请求，并进行 IO 操作，IO 操作完成后会通知 Procator</li>
+<li><code>Procator</code><br><font color=blue>Procator 在内核进程等待 IO 完成的事件</font>，根据事件类型回调对应的 Handler 进行业务处理。Handler 负责完成实际的业务处理，也能注册新的 Handler 到内核</li>
+</ol>
+</blockquote>
+<p><img src="/../images/reactor-5.png" alt="在这里插入图片描述"><br>以读取操作为例，<code>Proactor模式</code>的消息处理流程如下：</p>
+<blockquote>
+<ol>
+<li>应用程序初始化 Proactor 和相应的 Handler，然后将其注册到内核</li>
+<li>请求端发送数据，操作系统调用内核线程完成读取操作，并将读取的内容放入指定的缓冲区</li>
+<li>Proactor 在内核进程中等待读取操作完成事件，捕获到读取完成事件后，回调相应的 Handler</li>
+<li>Handler 直接从缓冲区读取数据处理，已经不需要进行实际的读取操作</li>
+</ol>
+</blockquote>
+<p> 综上可以明白 Proactor 与 Reactor 的区别：</p>
+<blockquote>
+<ol>
+<li>Reactor 由应用程序自行轮询监听事件，Proactor 则由内核进程监听事件，开销更小</li>
+<li>Reactor 读写的 IO 操作由应用程序自行完成处理，Proactor 是由内核异步 IO 完成读写操作，再发出通知</li>
+</ol>
+</blockquote>
+<p>理论上 Proactor 比 Reactor 效率更高，但是 Proactor 有如下缺点：</p>
+<blockquote>
+<ol>
+<li><code>内存使用</code><br>缓冲区在读写操作的时间段内必须持续占用内存，并且每个并发操作都要求有独立的缓冲区，相比 Reactor 模式在准备好读写前不要求开辟缓存，Proactor 对内存提出了更多的要求</li>
+<li><code>操作系统支持</code><br>异步 I&#x2F;O 依赖操作系统支持，Windows 中通过 IOCP 实现了真正的异步 I&#x2F;O，而在 Linux 系统中异步 I&#x2F;O 目前还不完善</li>
+</ol>
+</blockquote>
+</article><div class="post-copyright"><div class="post-copyright__author"><span class="post-copyright-meta">文章作者: </span><span class="post-copyright-info"><a href="https://yang00-74.github.io">nathan.yang</a></span></div><div class="post-copyright__type"><span class="post-copyright-meta">文章链接: </span><span class="post-copyright-info"><a href="https://yang00-74.github.io/2023/05/29/Reactor/">https://yang00-74.github.io/2023/05/29/Reactor/</a></span></div><div class="post-copyright__notice"><span class="post-copyright-meta">版权声明: </span><span class="post-copyright-info">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank">CC BY-NC-SA 4.0</a> 许可协议。转载请注明来自 <a href="https://yang00-74.github.io" target="_blank">谈谈1974</a>！</span></div></div><div class="tag_share"><div class="post-meta__tag-list"><a class="post-meta__tags" href="/tags/%E5%A4%9A%E7%BA%BF%E7%A8%8B/">多线程</a></div><div class="post_share"><div class="social-share" data-image="https://i.loli.net/2021/02/24/5O1day2nriDzjSu.png" data-sites="facebook,twitter,wechat,weibo,qq"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/butterfly-extsrc/sharejs/dist/css/share.min.css" media="print" onload="this.media='all'"><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc/sharejs/dist/js/social-share.min.js" defer></script></div></div><nav class="pagination-post" id="pagination"><div class="prev-post pull-left"><a href="/2023/05/29/Netty-2/" title="Netty源码分析(2)-服务端启动流程"><div class="cover" style="background: var(--default-bg-color)"></div><div class="pagination-info"><div class="label">上一篇</div><div class="prev_info">Netty源码分析(2)-服务端启动流程</div></div></a></div><div class="next-post pull-right"><a href="/2023/05/29/Netty-1/" title="Netty源码分析(1)-核心组件与架构"><div class="cover" style="background: var(--default-bg-color)"></div><div class="pagination-info"><div class="label">下一篇</div><div class="next_info">Netty源码分析(1)-核心组件与架构</div></div></a></div></nav></div><div class="aside-content" id="aside-content"><div class="card-widget card-info"><div class="is-center"><div class="avatar-img"><img src="https://i.loli.net/2021/02/24/5O1day2nriDzjSu.png" onerror="this.onerror=null;this.src='/img/friend_404.gif'" alt="avatar"/></div><div class="author-info__name">nathan.yang</div><div class="author-info__description"></div></div><div class="card-info-data site-data is-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">9</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">7</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">5</div></a></div><a id="card-info-btn" target="_blank" rel="noopener" href="https://github.com/yang00-74"><i class="fab fa-github"></i><span>关注我</span></a></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn fa-shake"></i><span>公告</span></div><div class="announcement_content">Welcome to nathan blog</div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="fas fa-stream"></i><span>目录</span><span class="toc-percentage"></span></div><div class="toc-content"><ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#Reactor-%E6%A8%A1%E5%BC%8F"><span class="toc-number">1.</span> <span class="toc-text">Reactor 模式</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%8D%95-Reactor-%E5%8D%95%E7%BA%BF%E7%A8%8B"><span class="toc-number">1.0.1.</span> <span class="toc-text">单 Reactor 单线程</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%8D%95-Reactor-%E5%A4%9A%E7%BA%BF%E7%A8%8B"><span class="toc-number">1.0.2.</span> <span class="toc-text">单 Reactor 多线程</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E4%B8%BB%E4%BB%8E-Reactor-%E5%A4%9A%E7%BA%BF%E7%A8%8B"><span class="toc-number">1.0.3.</span> <span class="toc-text">主从 Reactor 多线程</span></a></li></ol></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#Proactor-%E6%A8%A1%E5%BC%8F"><span class="toc-number">2.</span> <span class="toc-text">Proactor 模式</span></a></li></ol></div></div><div class="card-widget card-recent-post"><div class="item-headline"><i class="fas fa-history"></i><span>最新文章</span></div><div class="aside-list"><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2023/05/29/Netty-4/" title="Netty源码分析(4)-SubReactor 读写数据流程解析">Netty源码分析(4)-SubReactor 读写数据流程解析</a><time datetime="2023-05-29T14:12:30.000Z" title="发表于 2023-05-29 22:12:30">2023-05-29</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2023/05/29/Netty-3/" title="Netty源码分析(3)-服务端新建连接处理">Netty源码分析(3)-服务端新建连接处理</a><time datetime="2023-05-29T14:12:23.000Z" title="发表于 2023-05-29 22:12:23">2023-05-29</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2023/05/29/Netty-2/" title="Netty源码分析(2)-服务端启动流程">Netty源码分析(2)-服务端启动流程</a><time datetime="2023-05-29T13:44:46.000Z" title="发表于 2023-05-29 21:44:46">2023-05-29</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2023/05/29/Reactor/" title="Reactor 与 Proactor 线程模型详解">Reactor 与 Proactor 线程模型详解</a><time datetime="2023-05-29T13:26:54.000Z" title="发表于 2023-05-29 21:26:54">2023-05-29</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2023/05/29/Netty-1/" title="Netty源码分析(1)-核心组件与架构">Netty源码分析(1)-核心组件与架构</a><time datetime="2023-05-29T13:21:41.000Z" title="发表于 2023-05-29 21:21:41">2023-05-29</time></div></div></div></div></div></div></main><footer id="footer" style="background: transparent"><div id="footer-wrap"><div class="copyright">&copy;2020 - 2023 By nathan.yang</div><div class="framework-info"><span>框架 </span><a target="_blank" rel="noopener" href="https://hexo.io">Hexo</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="noopener" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly</a></div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="readmode" type="button" title="阅读模式"><i class="fas fa-book-open"></i></button><button id="darkmode" type="button" title="浅色和深色模式转换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="单栏和双栏切换"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside_config" type="button" title="设置"><i class="fas fa-cog fa-spin"></i></button><button class="close" id="mobile-toc-button" type="button" title="目录"><i class="fas fa-list-ul"></i></button><button id="go-up" type="button" title="回到顶部"><span class="scroll-percent"></span><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/js/utils.js"></script><script src="/js/main.js"></script><script src="https://cdn.jsdelivr.net/npm/@fancyapps/ui/dist/fancybox/fancybox.umd.min.js"></script><div class="js-pjax"></div><script id="canvas_nest" defer="defer" color="0,0,255" opacity="0.7" zIndex="-1" count="99" mobile="false" src="https://cdn.jsdelivr.net/npm/butterfly-extsrc/dist/canvas-nest.min.js"></script><script id="click-show-text" src="https://cdn.jsdelivr.net/npm/butterfly-extsrc/dist/click-show-text.min.js" data-mobile="false" data-text="点,啥,呢" data-fontsize="15px" data-random="false" async="async"></script><script async data-pjax src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script></div></body></html>

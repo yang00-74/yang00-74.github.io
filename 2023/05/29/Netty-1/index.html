@@ -1,0 +1,246 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover"><title>Netty源码分析(1)-核心组件与架构 | 谈谈1974</title><meta name="author" content="nathan.yang"><meta name="copyright" content="nathan.yang"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#ffffff"><meta name="description" content="Netty 组件架构Netty 的事件驱动框架基于 主从 Reactor 多线程 实现，其工作处理的流程如下所示。根据功能的不同，Netty 的组件主要可分为两个部分，分别是 事件分发组件 和 业务处理组件  事件分发组件事件分发组件主要包含了  EventLoopGroup 和 Acceptor 两类，其中   EventLoopGroup  为事件循环组，负责事件的分发处理，Acceptor">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Netty源码分析(1)-核心组件与架构">
+<meta property="og:url" content="https://yang00-74.github.io/2023/05/29/Netty-1/index.html">
+<meta property="og:site_name" content="谈谈1974">
+<meta property="og:description" content="Netty 组件架构Netty 的事件驱动框架基于 主从 Reactor 多线程 实现，其工作处理的流程如下所示。根据功能的不同，Netty 的组件主要可分为两个部分，分别是 事件分发组件 和 业务处理组件  事件分发组件事件分发组件主要包含了  EventLoopGroup 和 Acceptor 两类，其中   EventLoopGroup  为事件循环组，负责事件的分发处理，Acceptor">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://i.loli.net/2021/02/24/5O1day2nriDzjSu.png">
+<meta property="article:published_time" content="2023-05-29T13:21:41.000Z">
+<meta property="article:modified_time" content="2023-05-29T14:04:47.204Z">
+<meta property="article:author" content="nathan.yang">
+<meta property="article:tag" content="Java">
+<meta property="article:tag" content="Netty">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://i.loli.net/2021/02/24/5O1day2nriDzjSu.png"><link rel="shortcut icon" href="/img/drogan.jpg"><link rel="canonical" href="https://yang00-74.github.io/2023/05/29/Netty-1/index.html"><link rel="preconnect" href="//cdn.jsdelivr.net"/><link rel="preconnect" href="//busuanzi.ibruce.info"/><link rel="stylesheet" href="/css/index.css"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free/css/all.min.css" media="print" onload="this.media='all'"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fancyapps/ui/dist/fancybox/fancybox.min.css" media="print" onload="this.media='all'"><script>const GLOBAL_CONFIG = {
+  root: '/',
+  algolia: undefined,
+  localSearch: undefined,
+  translate: undefined,
+  noticeOutdate: undefined,
+  highlight: {"plugin":"highlighjs","highlightCopy":true,"highlightLang":true,"highlightHeightLimit":false},
+  copy: {
+    success: '复制成功',
+    error: '复制错误',
+    noSupport: '浏览器不支持'
+  },
+  relativeDate: {
+    homepage: false,
+    post: false
+  },
+  runtime: '',
+  dateSuffix: {
+    just: '刚刚',
+    min: '分钟前',
+    hour: '小时前',
+    day: '天前',
+    month: '个月前'
+  },
+  copyright: undefined,
+  lightbox: 'fancybox',
+  Snackbar: undefined,
+  source: {
+    justifiedGallery: {
+      js: 'https://cdn.jsdelivr.net/npm/flickr-justified-gallery/dist/fjGallery.min.js',
+      css: 'https://cdn.jsdelivr.net/npm/flickr-justified-gallery/dist/fjGallery.min.css'
+    }
+  },
+  isPhotoFigcaption: false,
+  islazyload: false,
+  isAnchor: false,
+  percent: {
+    toc: true,
+    rightside: true,
+  },
+  autoDarkmode: false
+}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = {
+  title: 'Netty源码分析(1)-核心组件与架构',
+  isPost: true,
+  isHome: false,
+  isHighlightShrink: false,
+  isToc: true,
+  postUpdate: '2023-05-29 22:04:47'
+}</script><noscript><style type="text/css">
+  #nav {
+    opacity: 1
+  }
+  .justified-gallery img {
+    opacity: 1
+  }
+
+  #recent-posts time,
+  #post-meta time {
+    display: inline !important
+  }
+</style></noscript><script>(win=>{
+    win.saveToLocal = {
+      set: function setWithExpiry(key, value, ttl) {
+        if (ttl === 0) return
+        const now = new Date()
+        const expiryDay = ttl * 86400000
+        const item = {
+          value: value,
+          expiry: now.getTime() + expiryDay,
+        }
+        localStorage.setItem(key, JSON.stringify(item))
+      },
+
+      get: function getWithExpiry(key) {
+        const itemStr = localStorage.getItem(key)
+
+        if (!itemStr) {
+          return undefined
+        }
+        const item = JSON.parse(itemStr)
+        const now = new Date()
+
+        if (now.getTime() > item.expiry) {
+          localStorage.removeItem(key)
+          return undefined
+        }
+        return item.value
+      }
+    }
+  
+    win.getScript = url => new Promise((resolve, reject) => {
+      const script = document.createElement('script')
+      script.src = url
+      script.async = true
+      script.onerror = reject
+      script.onload = script.onreadystatechange = function() {
+        const loadState = this.readyState
+        if (loadState && loadState !== 'loaded' && loadState !== 'complete') return
+        script.onload = script.onreadystatechange = null
+        resolve()
+      }
+      document.head.appendChild(script)
+    })
+  
+    win.getCSS = (url,id = false) => new Promise((resolve, reject) => {
+      const link = document.createElement('link')
+      link.rel = 'stylesheet'
+      link.href = url
+      if (id) link.id = id
+      link.onerror = reject
+      link.onload = link.onreadystatechange = function() {
+        const loadState = this.readyState
+        if (loadState && loadState !== 'loaded' && loadState !== 'complete') return
+        link.onload = link.onreadystatechange = null
+        resolve()
+      }
+      document.head.appendChild(link)
+    })
+  
+      win.activateDarkMode = function () {
+        document.documentElement.setAttribute('data-theme', 'dark')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#0d0d0d')
+        }
+      }
+      win.activateLightMode = function () {
+        document.documentElement.setAttribute('data-theme', 'light')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#ffffff')
+        }
+      }
+      const t = saveToLocal.get('theme')
+    
+          if (t === 'dark') activateDarkMode()
+          else if (t === 'light') activateLightMode()
+        
+      const asideStatus = saveToLocal.get('aside-status')
+      if (asideStatus !== undefined) {
+        if (asideStatus === 'hide') {
+          document.documentElement.classList.add('hide-aside')
+        } else {
+          document.documentElement.classList.remove('hide-aside')
+        }
+      }
+    
+    const detectApple = () => {
+      if(/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)){
+        document.documentElement.classList.add('apple')
+      }
+    }
+    detectApple()
+    })(window)</script><meta name="generator" content="Hexo 6.3.0"></head><body><div id="web_bg"></div><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="avatar-img is-center"><img src="https://i.loli.net/2021/02/24/5O1day2nriDzjSu.png" onerror="onerror=null;src='/img/friend_404.gif'" alt="avatar"/></div><div class="sidebar-site-data site-data is-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">9</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">7</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">5</div></a></div><hr/><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> 首页</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> 归档</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div></div></div></div><div class="post" id="body-wrap"><header class="not-top-img" id="page-header"><nav id="nav"><span id="blog-info"><a href="/" title="谈谈1974"><span class="site-name">谈谈1974</span></a></span><div id="menus"><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> 首页</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> 归档</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div></div><div id="toggle-menu"><a class="site-page" href="javascript:void(0);"><i class="fas fa-bars fa-fw"></i></a></div></div></nav></header><main class="layout" id="content-inner"><div id="post"><div id="post-info"><h1 class="post-title">Netty源码分析(1)-核心组件与架构</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">发表于</span><time class="post-meta-date-created" datetime="2023-05-29T13:21:41.000Z" title="发表于 2023-05-29 21:21:41">2023-05-29</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">更新于</span><time class="post-meta-date-updated" datetime="2023-05-29T14:04:47.204Z" title="更新于 2023-05-29 22:04:47">2023-05-29</time></span><span class="post-meta-categories"><span class="post-meta-separator">|</span><i class="fas fa-inbox fa-fw post-meta-icon"></i><a class="post-meta-categories" href="/categories/Netty-%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90/">Netty 源码分析</a></span></div><div class="meta-secondline"><span class="post-meta-separator">|</span><span class="post-meta-pv-cv" id="" data-flag-title="Netty源码分析(1)-核心组件与架构"><i class="far fa-eye fa-fw post-meta-icon"></i><span class="post-meta-label">阅读量:</span><span id="busuanzi_value_page_pv"><i class="fa-solid fa-spinner fa-spin"></i></span></span></div></div></div><article class="post-content" id="article-container"><h1 id="Netty-组件架构"><a href="#Netty-组件架构" class="headerlink" title="Netty 组件架构"></a>Netty 组件架构</h1><p>Netty 的事件驱动框架基于 <a href="https://yang00-74.github.io/2023/05/29/Reactor/">主从 Reactor 多线程</a> 实现，其工作处理的流程如下所示。根据功能的不同，Netty 的组件主要可分为两个部分，分别是 <font color=blue>事件分发组件 和 业务处理组件</font></p>
+<p><img src="/../images/Netty-1-1.jpeg" alt="在这里插入图片描述"></p>
+<h1 id="事件分发组件"><a href="#事件分发组件" class="headerlink" title="事件分发组件"></a>事件分发组件</h1><p>事件分发组件主要包含了  <code>EventLoopGroup</code> 和 <code>Acceptor</code> 两类，其中   <code>EventLoopGroup</code>  为事件循环组，负责事件的分发处理，<code>Acceptor</code> 则是服务端处理 accept 事件的处理器，负责将主事件循环组新建的连接注册到从事件循环组，起到连接的作用</p>
+<h3 id="事件循环组-EventLoopGroup"><a href="#事件循环组-EventLoopGroup" class="headerlink" title="事件循环组 EventLoopGroup"></a>事件循环组 EventLoopGroup</h3><p><code>EventLoopGroup</code> 主要<font color=blue>管理 EventLoop 的生命周期，内部维护了一组 EventLoop，每个 EventLoop 负责处理多个 Channel 上的事件，而一个 Channel 只对应于一个 EventLoop</font></p>
+<h4 id="事件循环组实例-NioEventLoopGroup"><a href="#事件循环组实例-NioEventLoopGroup" class="headerlink" title="事件循环组实例 NioEventLoopGroup"></a>事件循环组实例 NioEventLoopGroup</h4><p><code>NioEventLoopGroup</code> 继承结构很深，各个关键属性分布在不同的父类中，比较重要的如下:</p>
+<blockquote>
+<ol>
+<li><code>MultithreadEventLoopGroup:</code><br><code>DEFAULT_EVENT_LOOP_THREADS</code> : 表示默认的事件循环线程数，<font color=blue>默认值为机器可用核心数 * 2</font></li>
+<li><code>MultithreadEventExecutorGroup:</code><br><code>children</code>:  EventExecutor 数组，维护属于当前 group 的事件循环线程，也就是 NioEventLoop 实例对象</li>
+</ol>
+</blockquote>
+<p><code>MultithreadEventExecutorGroup</code> 是 <code>EventLoopGroup</code> 最重要的实现，其构造方法主要完成了以下几件事：</p>
+<blockquote>
+<ol>
+<li><code>new ThreadPerTaskExecutor(new DefaultThreadFactory())</code> 生成 Executor 实例，并指定其线程工厂</li>
+<li>调用 <code>newChild()</code> 方法为当前 group 新建  NioEventLoop 实例，并指定其 Executor 入参为 <code>ThreadPerTaskExecutor</code> 对象，该对象后续将用于创建和启动 EventLoop 线程</li>
+<li>如果有一个 NioEventLoop 实例新建失败，调用已创建的每个 NioEventLoop 实例的 <code>shutdownGracefully()</code> 方法启动事件循环线程</li>
+</ol>
+</blockquote>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">protected</span> <span class="title function_">MultithreadEventExecutorGroup</span><span class="params">(<span class="type">int</span> nThreads, Executor executor,</span></span><br><span class="line"><span class="params">                                            EventExecutorChooserFactory chooserFactory, Object... args)</span> &#123;</span><br><span class="line">        <span class="keyword">if</span> (nThreads &lt;= <span class="number">0</span>) &#123;</span><br><span class="line">            <span class="keyword">throw</span> <span class="keyword">new</span> <span class="title class_">IllegalArgumentException</span>(String.format(<span class="string">&quot;nThreads: %d (expected: &gt; 0)&quot;</span>, nThreads));</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> (executor == <span class="literal">null</span>) &#123;</span><br><span class="line">            <span class="comment">// #1</span></span><br><span class="line">            executor = <span class="keyword">new</span> <span class="title class_">ThreadPerTaskExecutor</span>(newDefaultThreadFactory());</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        children = <span class="keyword">new</span> <span class="title class_">EventExecutor</span>[nThreads];</span><br><span class="line"></span><br><span class="line">        <span class="keyword">for</span> (<span class="type">int</span> <span class="variable">i</span> <span class="operator">=</span> <span class="number">0</span>; i &lt; nThreads; i ++) &#123;</span><br><span class="line">            <span class="type">boolean</span> <span class="variable">success</span> <span class="operator">=</span> <span class="literal">false</span>;</span><br><span class="line">            <span class="keyword">try</span> &#123;</span><br><span class="line">                <span class="comment">// #2</span></span><br><span class="line">                children[i] = newChild(executor, args);</span><br><span class="line">                success = <span class="literal">true</span>;</span><br><span class="line">            &#125; <span class="keyword">catch</span> (Exception e) &#123;</span><br><span class="line">                <span class="comment">// <span class="doctag">TODO:</span> Think about if this is a good exception type</span></span><br><span class="line">                <span class="keyword">throw</span> <span class="keyword">new</span> <span class="title class_">IllegalStateException</span>(<span class="string">&quot;failed to create a child event loop&quot;</span>, e);</span><br><span class="line">            &#125; <span class="keyword">finally</span> &#123;</span><br><span class="line">                <span class="keyword">if</span> (!success) &#123;</span><br><span class="line">                    <span class="keyword">for</span> (<span class="type">int</span> <span class="variable">j</span> <span class="operator">=</span> <span class="number">0</span>; j &lt; i; j ++) &#123;</span><br><span class="line">                        <span class="comment">// #3</span></span><br><span class="line">                        children[j].shutdownGracefully();</span><br><span class="line">                    &#125;</span><br><span class="line"></span><br><span class="line">                    <span class="keyword">for</span> (<span class="type">int</span> <span class="variable">j</span> <span class="operator">=</span> <span class="number">0</span>; j &lt; i; j ++) &#123;</span><br><span class="line">                        <span class="type">EventExecutor</span> <span class="variable">e</span> <span class="operator">=</span> children[j];</span><br><span class="line">                        <span class="keyword">try</span> &#123;</span><br><span class="line">                            <span class="keyword">while</span> (!e.isTerminated()) &#123;</span><br><span class="line">                                e.awaitTermination(Integer.MAX_VALUE, TimeUnit.SECONDS);</span><br><span class="line">                            &#125;</span><br><span class="line">                        &#125; <span class="keyword">catch</span> (InterruptedException interrupted) &#123;</span><br><span class="line">                            <span class="comment">// Let the caller handle the interruption.</span></span><br><span class="line">                            Thread.currentThread().interrupt();</span><br><span class="line">                            <span class="keyword">break</span>;</span><br><span class="line">                        &#125;</span><br><span class="line">                    &#125;</span><br><span class="line">                &#125;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        chooser = chooserFactory.newChooser(children);</span><br><span class="line"></span><br><span class="line">        <span class="keyword">final</span> FutureListener&lt;Object&gt; terminationListener = <span class="keyword">new</span> <span class="title class_">FutureListener</span>&lt;Object&gt;() &#123;</span><br><span class="line">            <span class="meta">@Override</span></span><br><span class="line">            <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">operationComplete</span><span class="params">(Future&lt;Object&gt; future)</span> <span class="keyword">throws</span> Exception &#123;</span><br><span class="line">                <span class="keyword">if</span> (terminatedChildren.incrementAndGet() == children.length) &#123;</span><br><span class="line">                    terminationFuture.setSuccess(<span class="literal">null</span>);</span><br><span class="line">                &#125;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">for</span> (EventExecutor e: children) &#123;</span><br><span class="line">            e.terminationFuture().addListener(terminationListener);</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        Set&lt;EventExecutor&gt; childrenSet = <span class="keyword">new</span> <span class="title class_">LinkedHashSet</span>&lt;EventExecutor&gt;(children.length);</span><br><span class="line">        Collections.addAll(childrenSet, children);</span><br><span class="line">        readonlyChildren = Collections.unmodifiableSet(childrenSet);</span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure>
+
+<h4 id="事件循环实例-NioEventLoop"><a href="#事件循环实例-NioEventLoop" class="headerlink" title="事件循环实例 NioEventLoop"></a>事件循环实例 NioEventLoop</h4><p><code>NioEventLoop</code> 维护了一个线程和任务队列，类似于单线程线程池，支持异步提交执行任务，主要执行 <code>I/O 任务</code>和<code>非 I/O 任务</code>。两种任务的执行时间比由变量 <code>ioRatio</code> 控制，默认为 50，<font color=blue>表示非 IO 任务执行的时间与 IO 任务的执行时间相等</font></p>
+<blockquote>
+<ol>
+<li><code>I/O 任务</code><br>即 selectionKey 中 ready 的事件，如 accept、connect、read、write 等，由 <code>NioEventLoop#processSelectedKeys()</code> 方法触发</li>
+<li><code>非 IO 任务</code><br>添加到任务队列中的任务，如 register0、bind0 等任务，由 <code>NioEventLoop#runAllTasks()</code> 方法触发</li>
+</ol>
+</blockquote>
+<p><code>NioEventLoop</code> 的继承结构同样很深，其比较关键的属性如下：</p>
+<blockquote>
+<ol>
+<li><code>selector</code> 选择器，用于监听注册其上的 channel 连接上的各个事件</li>
+<li><code>SingleThreadEventExecutor:</code><br><code>taskQueue</code>: 任务存放的队列<br><code>executor</code>: 用于新建线程的线程工厂和执行器</li>
+</ol>
+</blockquote>
+<p><code>NioEventLoop#run()</code>方法是事件循环处理的核心逻辑，<code>SingleThreadEventExecutor#execute()</code> 方法则为事件循环开始的入口，此处暂不做深入分析</p>
+<p><img src="/../images/Netty-1-2.png" alt="在这里插入图片描述"></p>
+<h3 id="连接接收器-Acceptor"><a href="#连接接收器-Acceptor" class="headerlink" title="连接接收器 Acceptor"></a>连接接收器 Acceptor</h3><p> Netty 中的 <code>Acceptor</code> 在实现上属于<code>业务处理组件</code>，因为其实现类<code>ServerBootstrapAcceptor</code>继承于 <code>ChannelHandler</code>，主要负责在 Server 端完成对 Channel 的处理</p>
+<blockquote>
+<p>之所以将这个组件归入事件分发组件，是因为从功能划分的角度看其属于 MainReactor 与 SubReactor 之间的连接结构，负责将 MainReactor 接收客户端请求建立的新连接注册到 SubReactor 上</p>
+</blockquote>
+<p><code>ServerBootstrapAcceptor#channelRead()</code>是这个 <code>Acceptor</code> 最重要的方法，其实现了将新建连接注册到  SubReactor 的逻辑</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">channelRead</span><span class="params">(ChannelHandlerContext ctx, Object msg)</span> &#123;</span><br><span class="line">     <span class="keyword">final</span> <span class="type">Channel</span> <span class="variable">child</span> <span class="operator">=</span> (Channel) msg;</span><br><span class="line"></span><br><span class="line">     child.pipeline().addLast(childHandler);</span><br><span class="line"></span><br><span class="line">     setChannelOptions(child, childOptions, logger);</span><br><span class="line"></span><br><span class="line">     <span class="keyword">for</span> (Entry&lt;AttributeKey&lt;?&gt;, Object&gt; e: childAttrs) &#123;</span><br><span class="line">         child.attr((AttributeKey&lt;Object&gt;) e.getKey()).set(e.getValue());</span><br><span class="line">     &#125;</span><br><span class="line"></span><br><span class="line">     <span class="keyword">try</span> &#123;</span><br><span class="line">         childGroup.register(child).addListener(<span class="keyword">new</span> <span class="title class_">ChannelFutureListener</span>() &#123;</span><br><span class="line">             <span class="meta">@Override</span></span><br><span class="line">             <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">operationComplete</span><span class="params">(ChannelFuture future)</span> <span class="keyword">throws</span> Exception &#123;</span><br><span class="line">                 <span class="keyword">if</span> (!future.isSuccess()) &#123;</span><br><span class="line">                     forceClose(child, future.cause());</span><br><span class="line">                 &#125;</span><br><span class="line">             &#125;</span><br><span class="line">         &#125;);</span><br><span class="line">     &#125; <span class="keyword">catch</span> (Throwable t) &#123;</span><br><span class="line">         forceClose(child, t);</span><br><span class="line">     &#125;</span><br><span class="line"> &#125;</span><br></pre></td></tr></table></figure>
+<p><img src="/../images/Netty-1-3.png" alt="在这里插入图片描述"></p>
+<h1 id="业务处理组件"><a href="#业务处理组件" class="headerlink" title="业务处理组件"></a>业务处理组件</h1><p>业务处理组件主要包含了<code>Channel</code>、<code>ChannelHandler</code> 以及 <code>ChannelHandlerContext</code>。一个 <code>Channel</code> 包含了一个 <code>ChannelPipeline</code>，而 <code>ChannelPipeline</code> 中又维护了一个由 <code>ChannelHandlerContext</code> 组成的双向链表，每个 <code>ChannelHandlerContext</code> 中又关联着一个 <code>ChannelHandler</code></p>
+<p>根据<code>ChannelHandler</code>实现类继承接口的不同，可以将其分为 <code>ChannelInboundHandler入站处理器</code> 和  <code>ChannelOutboundHandler出站处理器</code>，二者分别对应读写操作。 <code>入站事件(read)</code>和<code>出站事件(write)</code>在<code>ChannelPipeline</code>中链式处理，<font color=blue>如果没有拦截器终止事件的传递，入站事件会从链表 head 往后传递到最后一个入站处理器 tail，出站事件会从链表 tail 往前传递到最前一个出站处理器 head，两种类型的 ChannelHandler 互不干扰</font></p>
+<p><img src="/../images/Netty-1-4.jpeg" alt="在这里插入图片描述"></p>
+<h3 id="管道-Channel"><a href="#管道-Channel" class="headerlink" title="管道 Channel"></a>管道 Channel</h3><p><code>Channel</code>是一个管道，<font color=blue>是用于连接字节缓冲区和另一端的实体</font>，可以分成<code>服务端 NioServerSocketChannel</code> 和 <code>客户端 NioSocketChannel</code> 两个大类。Netty 中 <code>Channel</code> 经过 <code>ChannelPipeline</code> 中的多个 <code>ChannelHandler</code> 处理器处理，最终完成 IO 数据的处理</p>
+<blockquote>
+<ul>
+<li>服务端 NioServerSocketChannel<br>该类继承于 <code>AbstractNioMessageChannel</code>，持有一个 <code>NioMessageUnsafe</code> 对象来完成 Chanel 上 IO 操作</li>
+<li>客户端 NioSocketChannel<br>该类继承于  <code>AbstractNioByteChannel</code>，持有一个 <code>NioByteUnsafe</code> 对象完成 Channel 上事件的处理</li>
+</ul>
+<hr>
+<p>所有继承于<code>AbstractChannel</code> 的 Channel 实例中都会持有一个 <code>DefaultChannelPipeline</code> 对象，该对象用于完成 IO 数据的流处理，另外还会持有一个 <code>EventLoop</code> 对象标识 Channel 所属的事件循环实例， 可用于处理任务提交</p>
+</blockquote>
+<p><img src="/../images/Netty-1-5.png" alt="在这里插入图片描述"></p>
+<h3 id="管道处理器-ChannelHandler"><a href="#管道处理器-ChannelHandler" class="headerlink" title="管道处理器 ChannelHandler"></a>管道处理器 ChannelHandler</h3><p><code>ChannelHandler</code> 是一个接口，处理 I&#x2F;O 事件或拦截 I&#x2F;O 操作，可以将事件转发到 <code>ChannelPipeline</code>业务处理链中的下一个 <code>ChannelHandler</code>处理或者终止事件传递</p>
+<blockquote>
+<p><code>ChannelHandler</code> 主要分为了 <code>进站处理器ChannelInboundHandler</code> 和 <code>出站处理器ChannelOutboundHandler</code>，分别对应 read 和 write 操作处理。处理器可由用户编写处理逻辑，Netty 内部会将其包装为 <code>AbstractChannelHandlerContext</code>对象，再将其注册到业务处理链中，即可完成对 IO 数据的逻辑处理</p>
+</blockquote>
+<p><img src="/../images/Netty-1-6.png" alt="在这里插入图片描述"></p>
+<h3 id="管道处理器上下文-ChannelHandlerContext"><a href="#管道处理器上下文-ChannelHandlerContext" class="headerlink" title="管道处理器上下文 ChannelHandlerContext"></a>管道处理器上下文 ChannelHandlerContext</h3><p><code>ChannelHandlerContext</code> 保存 <code>Channel</code> 相关的上下文信息，其主要有 3 种实现<code>DefaultChannelHandlerContext</code>、<code>HeadContext</code>以及 <code>TailContext</code>，以下为其关键属性：</p>
+<blockquote>
+<ol>
+<li><code>AbstractChannelHandlerContext:</code><br><code>next</code>:  当前管道处理器上下文节点的下一个节点<br><code>prev</code>: 当前管道处理器上下文节点的上一个节点<br><code>inbound</code>: 当前管道处理器上下文节点的出入站标识属性，为 true 表示该节点可处理入站事件<br><code>outbound</code>: 当前管道处理器上下文节点的出入站标识属性，为 true 表示该节点可处理出站事件<br><code>pipeline</code>: <code>ChannelPipeline</code> 的实例，其实现为 <code>DefaultChannelPipeline</code> 类</li>
+<li><code>DefaultChannelHandlerContext:</code><br><code>handler</code>: 封装的 ChannelHandler 处理器</li>
+</ol>
+</blockquote>
+<p> <code>ChannelPipeline</code> 的子类 <code>DefaultChannelPipeline</code> 对象实例化时会生成一个<code>HeadContext</code>及 <code>TailContext</code> 对象，并将其前后指针互相指向对方，形成了一个双向链表。 <code>DefaultChannelPipeline#addLast()</code> 方法会向该双向链表添加节点，主要处理步骤如下：</p>
+<blockquote>
+<ol>
+<li><code>newContext()</code> 将 <code>ChannelHandler</code> 封装到 <code>DefaultChannelHandlerContext</code> 对象</li>
+<li><code>addLast0()</code> 将新建的 <code>ChannelHandlerContext</code> 对象加入到双向链表中</li>
+<li><code>callHandlerAdded0()</code> 会回调<code>ChannelHandler#handlerAdded()</code> 方法，以便编写的相关逻辑在处理器添加到处理链中时被执行</li>
+</ol>
+</blockquote>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">final</span> ChannelPipeline <span class="title function_">addLast</span><span class="params">(EventExecutorGroup group, String name, ChannelHandler handler)</span> &#123;</span><br><span class="line">        <span class="keyword">final</span> AbstractChannelHandlerContext newCtx;</span><br><span class="line">        <span class="keyword">synchronized</span> (<span class="built_in">this</span>) &#123;</span><br><span class="line">            checkMultiplicity(handler);</span><br><span class="line"></span><br><span class="line">            newCtx = newContext(group, filterName(name, handler), handler);</span><br><span class="line"></span><br><span class="line">            addLast0(newCtx);</span><br><span class="line"></span><br><span class="line">            <span class="comment">// If the registered is false it means that the channel was not registered on an eventloop yet.</span></span><br><span class="line">            <span class="comment">// In this case we add the context to the pipeline and add a task that will call</span></span><br><span class="line">            <span class="comment">// ChannelHandler.handlerAdded(...) once the channel is registered.</span></span><br><span class="line">            <span class="keyword">if</span> (!registered) &#123;</span><br><span class="line">                newCtx.setAddPending();</span><br><span class="line">                callHandlerCallbackLater(newCtx, <span class="literal">true</span>);</span><br><span class="line">                <span class="keyword">return</span> <span class="built_in">this</span>;</span><br><span class="line">            &#125;</span><br><span class="line"></span><br><span class="line">            <span class="type">EventExecutor</span> <span class="variable">executor</span> <span class="operator">=</span> newCtx.executor();</span><br><span class="line">            <span class="keyword">if</span> (!executor.inEventLoop()) &#123;</span><br><span class="line">                newCtx.setAddPending();</span><br><span class="line">                executor.execute(<span class="keyword">new</span> <span class="title class_">Runnable</span>() &#123;</span><br><span class="line">                    <span class="meta">@Override</span></span><br><span class="line">                    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">run</span><span class="params">()</span> &#123;</span><br><span class="line">                        callHandlerAdded0(newCtx);</span><br><span class="line">                    &#125;</span><br><span class="line">                &#125;);</span><br><span class="line">                <span class="keyword">return</span> <span class="built_in">this</span>;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">        callHandlerAdded0(newCtx);</span><br><span class="line">        <span class="keyword">return</span> <span class="built_in">this</span>;</span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure>
+
+<p><img src="/../images/Netty-1-7.png" alt="在这里插入图片描述"></p>
+</article><div class="post-copyright"><div class="post-copyright__author"><span class="post-copyright-meta">文章作者: </span><span class="post-copyright-info"><a href="https://yang00-74.github.io">nathan.yang</a></span></div><div class="post-copyright__type"><span class="post-copyright-meta">文章链接: </span><span class="post-copyright-info"><a href="https://yang00-74.github.io/2023/05/29/Netty-1/">https://yang00-74.github.io/2023/05/29/Netty-1/</a></span></div><div class="post-copyright__notice"><span class="post-copyright-meta">版权声明: </span><span class="post-copyright-info">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank">CC BY-NC-SA 4.0</a> 许可协议。转载请注明来自 <a href="https://yang00-74.github.io" target="_blank">谈谈1974</a>！</span></div></div><div class="tag_share"><div class="post-meta__tag-list"><a class="post-meta__tags" href="/tags/Java/">Java</a><a class="post-meta__tags" href="/tags/Netty/">Netty</a></div><div class="post_share"><div class="social-share" data-image="https://i.loli.net/2021/02/24/5O1day2nriDzjSu.png" data-sites="facebook,twitter,wechat,weibo,qq"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/butterfly-extsrc/sharejs/dist/css/share.min.css" media="print" onload="this.media='all'"><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc/sharejs/dist/js/social-share.min.js" defer></script></div></div><nav class="pagination-post" id="pagination"><div class="prev-post pull-left"><a href="/2023/05/29/Reactor/" title="Reactor 与 Proactor 线程模型详解"><div class="cover" style="background: var(--default-bg-color)"></div><div class="pagination-info"><div class="label">上一篇</div><div class="prev_info">Reactor 与 Proactor 线程模型详解</div></div></a></div><div class="next-post pull-right"><a href="/2023/05/29/Java-8-ConcurrentHashMap/" title="Java 8 ConcurrentHashMap 源码分析"><div class="cover" style="background: var(--default-bg-color)"></div><div class="pagination-info"><div class="label">下一篇</div><div class="next_info">Java 8 ConcurrentHashMap 源码分析</div></div></a></div></nav><div class="relatedPosts"><div class="headline"><i class="fas fa-thumbs-up fa-fw"></i><span>相关推荐</span></div><div class="relatedPosts-list"><div><a href="/2023/05/29/Netty-2/" title="Netty源码分析(2)-服务端启动流程"><div class="cover" style="background: var(--default-bg-color)"></div><div class="content is-center"><div class="date"><i class="far fa-calendar-alt fa-fw"></i> 2023-05-29</div><div class="title">Netty源码分析(2)-服务端启动流程</div></div></a></div><div><a href="/2023/05/29/Netty-3/" title="Netty源码分析(3)-服务端新建连接处理"><div class="cover" style="background: var(--default-bg-color)"></div><div class="content is-center"><div class="date"><i class="far fa-calendar-alt fa-fw"></i> 2023-05-29</div><div class="title">Netty源码分析(3)-服务端新建连接处理</div></div></a></div><div><a href="/2023/05/29/Netty-4/" title="Netty源码分析(4)-SubReactor 读写数据流程解析"><div class="cover" style="background: var(--default-bg-color)"></div><div class="content is-center"><div class="date"><i class="far fa-calendar-alt fa-fw"></i> 2023-05-29</div><div class="title">Netty源码分析(4)-SubReactor 读写数据流程解析</div></div></a></div></div></div></div><div class="aside-content" id="aside-content"><div class="card-widget card-info"><div class="is-center"><div class="avatar-img"><img src="https://i.loli.net/2021/02/24/5O1day2nriDzjSu.png" onerror="this.onerror=null;this.src='/img/friend_404.gif'" alt="avatar"/></div><div class="author-info__name">nathan.yang</div><div class="author-info__description"></div></div><div class="card-info-data site-data is-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">9</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">7</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">5</div></a></div><a id="card-info-btn" target="_blank" rel="noopener" href="https://github.com/yang00-74"><i class="fab fa-github"></i><span>关注我</span></a></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn fa-shake"></i><span>公告</span></div><div class="announcement_content">Welcome to nathan blog</div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="fas fa-stream"></i><span>目录</span><span class="toc-percentage"></span></div><div class="toc-content"><ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#Netty-%E7%BB%84%E4%BB%B6%E6%9E%B6%E6%9E%84"><span class="toc-number">1.</span> <span class="toc-text">Netty 组件架构</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E4%BA%8B%E4%BB%B6%E5%88%86%E5%8F%91%E7%BB%84%E4%BB%B6"><span class="toc-number">2.</span> <span class="toc-text">事件分发组件</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E4%BA%8B%E4%BB%B6%E5%BE%AA%E7%8E%AF%E7%BB%84-EventLoopGroup"><span class="toc-number">2.0.1.</span> <span class="toc-text">事件循环组 EventLoopGroup</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#%E4%BA%8B%E4%BB%B6%E5%BE%AA%E7%8E%AF%E7%BB%84%E5%AE%9E%E4%BE%8B-NioEventLoopGroup"><span class="toc-number">2.0.1.1.</span> <span class="toc-text">事件循环组实例 NioEventLoopGroup</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E4%BA%8B%E4%BB%B6%E5%BE%AA%E7%8E%AF%E5%AE%9E%E4%BE%8B-NioEventLoop"><span class="toc-number">2.0.1.2.</span> <span class="toc-text">事件循环实例 NioEventLoop</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E8%BF%9E%E6%8E%A5%E6%8E%A5%E6%94%B6%E5%99%A8-Acceptor"><span class="toc-number">2.0.2.</span> <span class="toc-text">连接接收器 Acceptor</span></a></li></ol></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E4%B8%9A%E5%8A%A1%E5%A4%84%E7%90%86%E7%BB%84%E4%BB%B6"><span class="toc-number">3.</span> <span class="toc-text">业务处理组件</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E7%AE%A1%E9%81%93-Channel"><span class="toc-number">3.0.1.</span> <span class="toc-text">管道 Channel</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E7%AE%A1%E9%81%93%E5%A4%84%E7%90%86%E5%99%A8-ChannelHandler"><span class="toc-number">3.0.2.</span> <span class="toc-text">管道处理器 ChannelHandler</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E7%AE%A1%E9%81%93%E5%A4%84%E7%90%86%E5%99%A8%E4%B8%8A%E4%B8%8B%E6%96%87-ChannelHandlerContext"><span class="toc-number">3.0.3.</span> <span class="toc-text">管道处理器上下文 ChannelHandlerContext</span></a></li></ol></li></ol></li></ol></div></div><div class="card-widget card-recent-post"><div class="item-headline"><i class="fas fa-history"></i><span>最新文章</span></div><div class="aside-list"><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2023/05/29/Netty-4/" title="Netty源码分析(4)-SubReactor 读写数据流程解析">Netty源码分析(4)-SubReactor 读写数据流程解析</a><time datetime="2023-05-29T14:12:30.000Z" title="发表于 2023-05-29 22:12:30">2023-05-29</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2023/05/29/Netty-3/" title="Netty源码分析(3)-服务端新建连接处理">Netty源码分析(3)-服务端新建连接处理</a><time datetime="2023-05-29T14:12:23.000Z" title="发表于 2023-05-29 22:12:23">2023-05-29</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2023/05/29/Netty-2/" title="Netty源码分析(2)-服务端启动流程">Netty源码分析(2)-服务端启动流程</a><time datetime="2023-05-29T13:44:46.000Z" title="发表于 2023-05-29 21:44:46">2023-05-29</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2023/05/29/Reactor/" title="Reactor 与 Proactor 线程模型详解">Reactor 与 Proactor 线程模型详解</a><time datetime="2023-05-29T13:26:54.000Z" title="发表于 2023-05-29 21:26:54">2023-05-29</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2023/05/29/Netty-1/" title="Netty源码分析(1)-核心组件与架构">Netty源码分析(1)-核心组件与架构</a><time datetime="2023-05-29T13:21:41.000Z" title="发表于 2023-05-29 21:21:41">2023-05-29</time></div></div></div></div></div></div></main><footer id="footer" style="background: transparent"><div id="footer-wrap"><div class="copyright">&copy;2020 - 2023 By nathan.yang</div><div class="framework-info"><span>框架 </span><a target="_blank" rel="noopener" href="https://hexo.io">Hexo</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="noopener" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly</a></div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="readmode" type="button" title="阅读模式"><i class="fas fa-book-open"></i></button><button id="darkmode" type="button" title="浅色和深色模式转换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="单栏和双栏切换"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside_config" type="button" title="设置"><i class="fas fa-cog fa-spin"></i></button><button class="close" id="mobile-toc-button" type="button" title="目录"><i class="fas fa-list-ul"></i></button><button id="go-up" type="button" title="回到顶部"><span class="scroll-percent"></span><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/js/utils.js"></script><script src="/js/main.js"></script><script src="https://cdn.jsdelivr.net/npm/@fancyapps/ui/dist/fancybox/fancybox.umd.min.js"></script><div class="js-pjax"></div><script id="canvas_nest" defer="defer" color="0,0,255" opacity="0.7" zIndex="-1" count="99" mobile="false" src="https://cdn.jsdelivr.net/npm/butterfly-extsrc/dist/canvas-nest.min.js"></script><script id="click-show-text" src="https://cdn.jsdelivr.net/npm/butterfly-extsrc/dist/click-show-text.min.js" data-mobile="false" data-text="点,啥,呢" data-fontsize="15px" data-random="false" async="async"></script><script async data-pjax src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script></div></body></html>
