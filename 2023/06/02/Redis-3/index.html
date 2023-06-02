@@ -1,0 +1,320 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover"><title>Redis 6.0 源码阅读笔记(3)-概述 Redis 重要数据结构及其 6 种数据类型 | 谈谈1974</title><meta name="author" content="nathan.yang"><meta name="copyright" content="nathan.yang"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#ffffff"><meta name="description" content="重要数据结构Redis 有许多重要的数据结构，其存储结构从外层往内层依次是 redisDb、dict、dictht、dictEntry  redisDb 默认情况下有16个，每个 redisDb 内部包含一个 dict 的数据结构，dict 内部包含 dictht 数组，数组个数为2，主要用于 hash 扩容使用。dictht 内部包含 dictEntry 的数组，dictEntry 其实就是 h">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Redis 6.0 源码阅读笔记(3)-概述 Redis 重要数据结构及其 6 种数据类型">
+<meta property="og:url" content="https://yang00-74.github.io/2023/06/02/Redis-3/index.html">
+<meta property="og:site_name" content="谈谈1974">
+<meta property="og:description" content="重要数据结构Redis 有许多重要的数据结构，其存储结构从外层往内层依次是 redisDb、dict、dictht、dictEntry  redisDb 默认情况下有16个，每个 redisDb 内部包含一个 dict 的数据结构，dict 内部包含 dictht 数组，数组个数为2，主要用于 hash 扩容使用。dictht 内部包含 dictEntry 的数组，dictEntry 其实就是 h">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://i.loli.net/2021/02/24/5O1day2nriDzjSu.png">
+<meta property="article:published_time" content="2023-06-02T07:39:04.000Z">
+<meta property="article:modified_time" content="2023-06-02T07:52:53.168Z">
+<meta property="article:author" content="nathan.yang">
+<meta property="article:tag" content="Redis">
+<meta property="article:tag" content="数据结构">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://i.loli.net/2021/02/24/5O1day2nriDzjSu.png"><link rel="shortcut icon" href="/img/drogan.jpg"><link rel="canonical" href="https://yang00-74.github.io/2023/06/02/Redis-3/index.html"><link rel="preconnect" href="//cdn.jsdelivr.net"/><link rel="preconnect" href="//busuanzi.ibruce.info"/><link rel="stylesheet" href="/css/index.css"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free/css/all.min.css" media="print" onload="this.media='all'"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fancyapps/ui/dist/fancybox/fancybox.min.css" media="print" onload="this.media='all'"><script>const GLOBAL_CONFIG = {
+  root: '/',
+  algolia: undefined,
+  localSearch: undefined,
+  translate: undefined,
+  noticeOutdate: undefined,
+  highlight: {"plugin":"highlighjs","highlightCopy":true,"highlightLang":false,"highlightHeightLimit":false},
+  copy: {
+    success: '复制成功',
+    error: '复制错误',
+    noSupport: '浏览器不支持'
+  },
+  relativeDate: {
+    homepage: false,
+    post: false
+  },
+  runtime: '',
+  dateSuffix: {
+    just: '刚刚',
+    min: '分钟前',
+    hour: '小时前',
+    day: '天前',
+    month: '个月前'
+  },
+  copyright: undefined,
+  lightbox: 'fancybox',
+  Snackbar: undefined,
+  source: {
+    justifiedGallery: {
+      js: 'https://cdn.jsdelivr.net/npm/flickr-justified-gallery/dist/fjGallery.min.js',
+      css: 'https://cdn.jsdelivr.net/npm/flickr-justified-gallery/dist/fjGallery.min.css'
+    }
+  },
+  isPhotoFigcaption: false,
+  islazyload: false,
+  isAnchor: false,
+  percent: {
+    toc: true,
+    rightside: true,
+  },
+  autoDarkmode: false
+}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = {
+  title: 'Redis 6.0 源码阅读笔记(3)-概述 Redis 重要数据结构及其 6 种数据类型',
+  isPost: true,
+  isHome: false,
+  isHighlightShrink: false,
+  isToc: true,
+  postUpdate: '2023-06-02 15:52:53'
+}</script><noscript><style type="text/css">
+  #nav {
+    opacity: 1
+  }
+  .justified-gallery img {
+    opacity: 1
+  }
+
+  #recent-posts time,
+  #post-meta time {
+    display: inline !important
+  }
+</style></noscript><script>(win=>{
+    win.saveToLocal = {
+      set: function setWithExpiry(key, value, ttl) {
+        if (ttl === 0) return
+        const now = new Date()
+        const expiryDay = ttl * 86400000
+        const item = {
+          value: value,
+          expiry: now.getTime() + expiryDay,
+        }
+        localStorage.setItem(key, JSON.stringify(item))
+      },
+
+      get: function getWithExpiry(key) {
+        const itemStr = localStorage.getItem(key)
+
+        if (!itemStr) {
+          return undefined
+        }
+        const item = JSON.parse(itemStr)
+        const now = new Date()
+
+        if (now.getTime() > item.expiry) {
+          localStorage.removeItem(key)
+          return undefined
+        }
+        return item.value
+      }
+    }
+  
+    win.getScript = url => new Promise((resolve, reject) => {
+      const script = document.createElement('script')
+      script.src = url
+      script.async = true
+      script.onerror = reject
+      script.onload = script.onreadystatechange = function() {
+        const loadState = this.readyState
+        if (loadState && loadState !== 'loaded' && loadState !== 'complete') return
+        script.onload = script.onreadystatechange = null
+        resolve()
+      }
+      document.head.appendChild(script)
+    })
+  
+    win.getCSS = (url,id = false) => new Promise((resolve, reject) => {
+      const link = document.createElement('link')
+      link.rel = 'stylesheet'
+      link.href = url
+      if (id) link.id = id
+      link.onerror = reject
+      link.onload = link.onreadystatechange = function() {
+        const loadState = this.readyState
+        if (loadState && loadState !== 'loaded' && loadState !== 'complete') return
+        link.onload = link.onreadystatechange = null
+        resolve()
+      }
+      document.head.appendChild(link)
+    })
+  
+      win.activateDarkMode = function () {
+        document.documentElement.setAttribute('data-theme', 'dark')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#0d0d0d')
+        }
+      }
+      win.activateLightMode = function () {
+        document.documentElement.setAttribute('data-theme', 'light')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#ffffff')
+        }
+      }
+      const t = saveToLocal.get('theme')
+    
+          if (t === 'dark') activateDarkMode()
+          else if (t === 'light') activateLightMode()
+        
+      const asideStatus = saveToLocal.get('aside-status')
+      if (asideStatus !== undefined) {
+        if (asideStatus === 'hide') {
+          document.documentElement.classList.add('hide-aside')
+        } else {
+          document.documentElement.classList.remove('hide-aside')
+        }
+      }
+    
+    const detectApple = () => {
+      if(/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)){
+        document.documentElement.classList.add('apple')
+      }
+    }
+    detectApple()
+    })(window)</script><meta name="generator" content="Hexo 6.3.0"></head><body><div id="web_bg"></div><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="avatar-img is-center"><img src="https://i.loli.net/2021/02/24/5O1day2nriDzjSu.png" onerror="onerror=null;src='/img/friend_404.gif'" alt="avatar"/></div><div class="sidebar-site-data site-data is-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">17</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">8</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">6</div></a></div><hr/><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> 首页</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> 归档</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div></div></div></div><div class="post" id="body-wrap"><header class="not-top-img" id="page-header"><nav id="nav"><span id="blog-info"><a href="/" title="谈谈1974"><span class="site-name">谈谈1974</span></a></span><div id="menus"><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> 首页</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> 归档</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div></div><div id="toggle-menu"><a class="site-page" href="javascript:void(0);"><i class="fas fa-bars fa-fw"></i></a></div></div></nav></header><main class="layout" id="content-inner"><div id="post"><div id="post-info"><h1 class="post-title">Redis 6.0 源码阅读笔记(3)-概述 Redis 重要数据结构及其 6 种数据类型</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">发表于</span><time class="post-meta-date-created" datetime="2023-06-02T07:39:04.000Z" title="发表于 2023-06-02 15:39:04">2023-06-02</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">更新于</span><time class="post-meta-date-updated" datetime="2023-06-02T07:52:53.168Z" title="更新于 2023-06-02 15:52:53">2023-06-02</time></span><span class="post-meta-categories"><span class="post-meta-separator">|</span><i class="fas fa-inbox fa-fw post-meta-icon"></i><a class="post-meta-categories" href="/categories/Redis-%E6%BA%90%E7%A0%81%E9%98%85%E8%AF%BB%E7%AC%94%E8%AE%B0/">Redis 源码阅读笔记</a></span></div><div class="meta-secondline"><span class="post-meta-separator">|</span><span class="post-meta-pv-cv" id="" data-flag-title="Redis 6.0 源码阅读笔记(3)-概述 Redis 重要数据结构及其 6 种数据类型"><i class="far fa-eye fa-fw post-meta-icon"></i><span class="post-meta-label">阅读量:</span><span id="busuanzi_value_page_pv"><i class="fa-solid fa-spinner fa-spin"></i></span></span></div></div></div><article class="post-content" id="article-container"><h1 id="重要数据结构"><a href="#重要数据结构" class="headerlink" title="重要数据结构"></a>重要数据结构</h1><p>Redis 有许多重要的数据结构，其存储结构从外层往内层依次是 <code>redisDb</code>、<code>dict</code>、<code>dictht</code>、<code>dictEntry</code></p>
+<blockquote>
+<p>redisDb 默认情况下有16个，每个 redisDb 内部包含一个 dict 的数据结构，dict 内部包含 dictht 数组，数组个数为2，主要用于 hash 扩容使用。dictht 内部包含 dictEntry 的数组，dictEntry 其实就是 hash 表的一个 key-value 节点，如果冲突通过 <a href="https://yang00-74.github.io/2023/05/29/Java-8-HashMap/#Reference-%E8%A7%A3%E5%86%B3hash%E5%86%B2%E7%AA%81%E7%9A%84%E5%9B%9B%E7%A7%8D%E6%96%B9%E6%B3%95%EF%BC%9A">链地址法</a> 解决</p>
+</blockquote>
+<p><img src="/../images/redis-3-1.jpeg" alt="在这里插入图片描述"></p>
+<h3 id="redisServer"><a href="#redisServer" class="headerlink" title="redisServer"></a>redisServer</h3><p>数据结构 <code>redisServer</code> 是一个 redis 服务端的抽象，定义在 <code>server.h</code> 中。  <code>redisServer</code>  中的属性非常多，以下为节选的一部分，简单介绍下</p>
+<blockquote>
+<ol>
+<li><code>hz</code>: redis 定时任务触发的频率</li>
+<li><code>*db</code>: redisDb 数组，默认 16 个 redisDb</li>
+<li><code>*commands</code>: redis 支持的命令的字典</li>
+<li><code>*el</code>: redis 事件循环实例</li>
+<li><code>runid[CONFIG_RUN_ID_SIZE+1]</code>: 当前 redis 实例的 runid</li>
+</ol>
+</blockquote>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">struct</span> <span class="title">redisServer</span> &#123;</span></span><br><span class="line">    <span class="comment">/* General */</span></span><br><span class="line">    <span class="type">pid_t</span> pid;                  <span class="comment">/* Main process pid. */</span></span><br><span class="line">    </span><br><span class="line">    ......</span><br><span class="line">    </span><br><span class="line">    <span class="type">int</span> hz;                     <span class="comment">/* serverCron() calls frequency in hertz */</span></span><br><span class="line">    redisDb *db;</span><br><span class="line">    dict *commands;             <span class="comment">/* Command table */</span></span><br><span class="line">    dict *orig_commands;        <span class="comment">/* Command table before command renaming. */</span></span><br><span class="line">    aeEventLoop *el;</span><br><span class="line">    </span><br><span class="line">    ......</span><br><span class="line">    </span><br><span class="line">    <span class="type">char</span> runid[CONFIG_RUN_ID_SIZE+<span class="number">1</span>];  <span class="comment">/* ID always different at every exec. */</span></span><br><span class="line">    </span><br><span class="line">    ......</span><br><span class="line">    </span><br><span class="line">    <span class="built_in">list</span> *clients;              <span class="comment">/* List of active clients */</span></span><br><span class="line">    <span class="built_in">list</span> *clients_to_close;     <span class="comment">/* Clients to close asynchronously */</span></span><br><span class="line">    <span class="built_in">list</span> *clients_pending_write; <span class="comment">/* There is to write or install handler. */</span></span><br><span class="line">    <span class="built_in">list</span> *clients_pending_read;  <span class="comment">/* Client has pending read socket buffers. */</span></span><br><span class="line">    <span class="built_in">list</span> *slaves, *monitors;    <span class="comment">/* List of slaves and MONITORs */</span></span><br><span class="line">    client *current_client;     <span class="comment">/* Current client executing the command. */</span></span><br><span class="line">  </span><br><span class="line">    ......</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<h3 id="redisDb"><a href="#redisDb" class="headerlink" title="redisDb"></a>redisDb</h3><p><code>redisDb</code> 是 redis 数据库的抽象，定义在 <code>server.h</code> 中，比较关键的属性如下</p>
+<blockquote>
+<ol>
+<li><code>*dict</code>: 存储数据的字典</li>
+<li><code>*expires</code>: 存储有过期时间的 key</li>
+</ol>
+</blockquote>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">typedef</span> <span class="class"><span class="keyword">struct</span> <span class="title">redisDb</span> &#123;</span></span><br><span class="line">    dict *dict;                 <span class="comment">/* The keyspace for this DB */</span></span><br><span class="line">    dict *expires;              <span class="comment">/* Timeout of keys with a timeout set */</span></span><br><span class="line">    dict *blocking_keys;        <span class="comment">/* Keys with clients waiting for data (BLPOP)*/</span></span><br><span class="line">    dict *ready_keys;           <span class="comment">/* Blocked keys that received a PUSH */</span></span><br><span class="line">    dict *watched_keys;         <span class="comment">/* WATCHED keys for MULTI/EXEC CAS */</span></span><br><span class="line">    <span class="type">int</span> id;                     <span class="comment">/* Database ID */</span></span><br><span class="line">    <span class="type">long</span> <span class="type">long</span> avg_ttl;          <span class="comment">/* Average TTL, just for stats */</span></span><br><span class="line">    <span class="type">unsigned</span> <span class="type">long</span> expires_cursor; <span class="comment">/* Cursor of the active expire cycle. */</span></span><br><span class="line">    <span class="built_in">list</span> *defrag_later;         <span class="comment">/* List of key names to attempt to defrag one by one, gradually. */</span></span><br><span class="line">&#125; redisDb;</span><br></pre></td></tr></table></figure>
+
+<h3 id="dict"><a href="#dict" class="headerlink" title="dict"></a>dict</h3><p><code>dict</code> 是 redis 中的字典，定义在 <code>dict.h</code> 文件中，其主要的属性如下</p>
+<blockquote>
+<ol>
+<li><code>ht[2]</code>: 哈希表数组，为了扩容方便有 2 个元素，其中一个哈希表正常存储数据，另一个哈希表为空，空哈希表在 rehash 时使用</li>
+<li><code>rehashidx</code>:rehash 索引，当不在进行 rehash 时，值为 -1</li>
+</ol>
+</blockquote>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">typedef</span> <span class="class"><span class="keyword">struct</span> <span class="title">dict</span> &#123;</span></span><br><span class="line">    dictType *type;</span><br><span class="line">    <span class="type">void</span> *privdata;</span><br><span class="line">    dictht ht[<span class="number">2</span>];</span><br><span class="line">    <span class="type">long</span> rehashidx; <span class="comment">/* rehashing not in progress if rehashidx == -1 */</span></span><br><span class="line">    <span class="type">unsigned</span> <span class="type">long</span> iterators; <span class="comment">/* number of iterators currently running */</span></span><br><span class="line">&#125; dict;</span><br></pre></td></tr></table></figure>
+
+<h3 id="dictht"><a href="#dictht" class="headerlink" title="dictht"></a>dictht</h3><p><code>dictht</code> 是哈希表结构，定义在 <code>dict.h</code> 文件中，其重要的属性如下</p>
+<blockquote>
+<ol>
+<li><code>**table</code>: key-value 键值对节点数组，类似 Java 中的 HashMap 底层数组</li>
+<li><code>size</code>: 哈希表容量大小</li>
+<li><code>sizemask</code>: 总是等于 size - 1，用于计算索引值</li>
+<li><code>used</code>: 哈希表实际存储的 dictEntry 数量</li>
+</ol>
+</blockquote>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">typedef</span> <span class="class"><span class="keyword">struct</span> <span class="title">dictht</span> &#123;</span></span><br><span class="line">    dictEntry **table;</span><br><span class="line">    <span class="type">unsigned</span> <span class="type">long</span> size;</span><br><span class="line">    <span class="type">unsigned</span> <span class="type">long</span> sizemask;</span><br><span class="line">    <span class="type">unsigned</span> <span class="type">long</span> used;</span><br><span class="line">&#125; dictht;</span><br></pre></td></tr></table></figure>
+
+<h3 id="dictEntry"><a href="#dictEntry" class="headerlink" title="dictEntry"></a>dictEntry</h3><p><code>dictEntry</code> 是 redis 中的 key-value 键值对节点，是实际存储数据的节点，定义在 <code>dict.h</code> 文件中，其重要的属性如下</p>
+<blockquote>
+<ol>
+<li><code>*key</code>: 键对象，总是一个字符串类型的对象</li>
+<li><code>*val</code>: 值对象，可能是任意类型的对象</li>
+<li><code>*next</code>: 尾指针，指向下一个节点</li>
+</ol>
+</blockquote>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">typedef</span> <span class="class"><span class="keyword">struct</span> <span class="title">dictEntry</span> &#123;</span></span><br><span class="line">    <span class="type">void</span> *key;</span><br><span class="line">    <span class="class"><span class="keyword">union</span> &#123;</span></span><br><span class="line">        <span class="type">void</span> *val;</span><br><span class="line">        <span class="type">uint64_t</span> u64;</span><br><span class="line">        <span class="type">int64_t</span> s64;</span><br><span class="line">        <span class="type">double</span> d;</span><br><span class="line">    &#125; v;</span><br><span class="line">    <span class="class"><span class="keyword">struct</span> <span class="title">dictEntry</span> *<span class="title">next</span>;</span></span><br><span class="line">&#125; dictEntry;</span><br></pre></td></tr></table></figure>
+
+<h1 id="数据类型"><a href="#数据类型" class="headerlink" title="数据类型"></a>数据类型</h1><h3 id="Redis-数据对象结构"><a href="#Redis-数据对象结构" class="headerlink" title="Redis 数据对象结构"></a>Redis 数据对象结构</h3><p>Redis 数据库中所有数据都<font style=background-color:#f8f840>以 key-value 节点 dictEntry 存储</font>，其中 key 和 value 都是一个 <code>redisObject</code> 结构体对象，只不过 key 总是一个字符串类型的对象，value 则可能是任意一种数据类型的对象。 <code>redisObject</code> 结构体定义在 <code>server.h</code> 中如下所示</p>
+<blockquote>
+<p>可以看到该结构体中重要的属性如下，<font style=background-color:#f8f840>不同的对象具有不同的类型 type，同一个类型的 type 会有不同的存储形式 encoding</font></p>
+<ol>
+<li><code>type</code>: 该属性标明了数据对象的类型，比如 String，List 等</li>
+<li><code>encoding</code>: 这个属性指明了对象底层的存储结构，比如 ZSet 类型对象可能的存储结构有 ZIPLIST 和 SKIPLIST</li>
+<li><code>*ptr</code>: 指向底层存储结构的指针</li>
+</ol>
+</blockquote>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">typedef</span> <span class="class"><span class="keyword">struct</span> <span class="title">redisObject</span> &#123;</span></span><br><span class="line">    <span class="type">unsigned</span> type:<span class="number">4</span>;</span><br><span class="line">    <span class="type">unsigned</span> encoding:<span class="number">4</span>;</span><br><span class="line">    <span class="type">unsigned</span> lru:LRU_BITS; <span class="comment">/* LRU time (relative to global lru_clock) or</span></span><br><span class="line"><span class="comment">                            * LFU data (least significant 8 bits frequency</span></span><br><span class="line"><span class="comment">                            * and most significant 16 bits access time). */</span></span><br><span class="line">    <span class="type">int</span> refcount;</span><br><span class="line">    <span class="type">void</span> *ptr;</span><br><span class="line">&#125; robj;</span><br></pre></td></tr></table></figure>
+
+<h3 id="Redis-数据类型及其存储结构"><a href="#Redis-数据类型及其存储结构" class="headerlink" title="Redis 数据类型及其存储结构"></a>Redis 数据类型及其存储结构</h3><p><img src="/../images/redis-3-2.jpeg" alt="在这里插入图片描述"><br>以上为 Redis 中数据类型及其存储结构的关系图示，图中的宏定义在 <code>server.h</code> 文件中</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/* The actual Redis Object */</span></span><br><span class="line"><span class="meta">#<span class="keyword">define</span> OBJ_STRING 0    <span class="comment">/* String object. */</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">define</span> OBJ_LIST 1      <span class="comment">/* List object. */</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">define</span> OBJ_SET 2       <span class="comment">/* Set object. */</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">define</span> OBJ_ZSET 3      <span class="comment">/* Sorted set object. */</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">define</span> OBJ_HASH 4      <span class="comment">/* Hash object. */</span></span></span><br><span class="line"></span><br><span class="line"><span class="comment">/* The &quot;module&quot; object type is a special one that signals that the object</span></span><br><span class="line"><span class="comment"> * is one directly managed by a Redis module. In this case the value points</span></span><br><span class="line"><span class="comment"> * to a moduleValue struct, which contains the object value (which is only</span></span><br><span class="line"><span class="comment"> * handled by the module itself) and the RedisModuleType struct which lists</span></span><br><span class="line"><span class="comment"> * function pointers in order to serialize, deserialize, AOF-rewrite and</span></span><br><span class="line"><span class="comment"> * free the object.</span></span><br><span class="line"><span class="comment"> *</span></span><br><span class="line"><span class="comment"> * Inside the RDB file, module types are encoded as OBJ_MODULE followed</span></span><br><span class="line"><span class="comment"> * by a 64 bit module type ID, which has a 54 bits module-specific signature</span></span><br><span class="line"><span class="comment"> * in order to dispatch the loading to the right module, plus a 10 bits</span></span><br><span class="line"><span class="comment"> * encoding version. */</span></span><br><span class="line"><span class="meta">#<span class="keyword">define</span> OBJ_MODULE 5    <span class="comment">/* Module object. */</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">define</span> OBJ_STREAM 6    <span class="comment">/* Stream object. */</span></span></span><br><span class="line"></span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="comment">/* Objects encoding. Some kind of objects like Strings and Hashes can be</span></span><br><span class="line"><span class="comment"> * internally represented in multiple ways. The &#x27;encoding&#x27; field of the object</span></span><br><span class="line"><span class="comment"> * is set to one of this fields for this object. */</span></span><br><span class="line"><span class="meta">#<span class="keyword">define</span> OBJ_ENCODING_RAW 0     <span class="comment">/* Raw representation */</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">define</span> OBJ_ENCODING_INT 1     <span class="comment">/* Encoded as integer */</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">define</span> OBJ_ENCODING_HT 2      <span class="comment">/* Encoded as hash table */</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">define</span> OBJ_ENCODING_ZIPMAP 3  <span class="comment">/* Encoded as zipmap */</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">define</span> OBJ_ENCODING_LINKEDLIST 4 <span class="comment">/* No longer used: old list encoding. */</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">define</span> OBJ_ENCODING_ZIPLIST 5 <span class="comment">/* Encoded as ziplist */</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">define</span> OBJ_ENCODING_INTSET 6  <span class="comment">/* Encoded as intset */</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">define</span> OBJ_ENCODING_SKIPLIST 7  <span class="comment">/* Encoded as skiplist */</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">define</span> OBJ_ENCODING_EMBSTR 8  <span class="comment">/* Embedded sds string encoding */</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">define</span> OBJ_ENCODING_QUICKLIST 9 <span class="comment">/* Encoded as linked list of ziplists */</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">define</span> OBJ_ENCODING_STREAM 10 <span class="comment">/* Encoded as a radix tree of listpacks */</span></span></span><br></pre></td></tr></table></figure>
+
+<h4 id="字符串对象-String"><a href="#字符串对象-String" class="headerlink" title="字符串对象 String"></a>字符串对象 String</h4><p><code>OBJ_STRING</code> 字符串对象底层数据结构一般为<font style=background-color:#f8f840>简单动态字符串（SDS）</font>，但其存储方式可以是 <code>OBJ_ENCODING_INT</code>、<code>OBJ_ENCODING_EMBSTR</code> 和 <code>OBJ_ENCODING_RAW</code>，不同的存储方式代表着对象内存结构的不同</p>
+<blockquote>
+<ol>
+<li><code>OBJ_ENCODING_INT</code><br>如果保存的字符串<font style=background-color:#f8f840>长度小于 20 并且可以解析为整数</font>，那么这个整数就会直接保存在 <code>redisObject</code> 的 <code>ptr</code> 属性里</li>
+<li><code>OBJ_ENCODING_EMBSTR</code><br>长度小于 44 （OBJ_ENCODING_EMBSTR_SIZE_LIMIT）的字符串将以<font style=background-color:#f8f840>简单动态字符串（SDS）</font> 的形式存储，但是会使用 malloc 方法一次分配内存，将 redisObject 对象头和 SDS 对象连续存在一起</li>
+<li><code>OBJ_ENCODING_RAW</code><br>字符串将以<font style=background-color:#f8f840>简单动态字符串（SDS）</font> 的形式存储，需要两次 malloc 分配内存，redisObject 对象头和 SDS 对象在内存地址上一般是不连续的</li>
+</ol>
+</blockquote>
+<blockquote>
+<ul>
+<li>在 Redis 中，long、double 类型的浮点数是被封装在字符串对象中再进行存储的</li>
+<li><code>OBJ_ENCODING_RAW</code> 与 <code>OBJ_ENCODING_EMBSTR</code> 不同点在于内存分配与释放，raw 需要两次操作，embstr 只需一次，另外由于 embstr 内存块连续，能更好的利用缓存带来的优势</li>
+<li><code>OBJ_ENCODING_EMBSTR</code> 编码的对象是只读的，一旦修改会先转码为<code>OBJ_ENCODING_RAW</code></li>
+</ul>
+</blockquote>
+<h4 id="列表对象-List"><a href="#列表对象-List" class="headerlink" title="列表对象 List"></a>列表对象 List</h4><p><code>OBJ_LIST</code> 列表对象的底层存储结构有过 3 种实现，分别是 <code>OBJ_ENCODING_LINKEDLIST</code>、 <code>OBJ_ENCODING_ZIPLIST</code> 和 <code>OBJ_ENCODING_QUICKLIST</code>，<font style=background-color:#f8f840>其中 OBJ_ENCODING_LINKEDLIST 在 3.2 版本以后就废弃了</font></p>
+<blockquote>
+<ol>
+<li><code>OBJ_ENCODING_LINKEDLIST</code><br>底层采用双端链表实现，每个链表节点都保存了一个字符串对象，在每个字符串对象内保存了一个元素</li>
+<li><code>OBJ_ENCODING_ZIPLIST</code><br>底层实现类似数组，使用特定属性保存整个列表的元信息，如整个列表占用的内存大小，列表保存的数据开始的位置，列表保存的数据的个数等，其保存的数据被封装在 <code>zlentry</code><br><font style=background-color:#f8f840>使用ziplist 需要满足两个条件</font><ul>
+<li>列表对象保存的所有字符串元素的长度小于64字节</li>
+<li>列表对象保存的元素数量小于512个</li>
+</ul>
+</li>
+<li><code>OBJ_ENCODING_QUICKLIST</code><br>底层采用双端链表结构，不过每个链表节点都保存一个 ziplist，数据存储在 ziplist 中</li>
+</ol>
+</blockquote>
+<h4 id="集合对象-Set"><a href="#集合对象-Set" class="headerlink" title="集合对象 Set"></a>集合对象 Set</h4><p><code>OBJ_SET</code> 集合对象的底层存储结构有两种，<code>OBJ_ENCODING_HT</code> 和 <code>OBJ_ENCODING_INTSET</code></p>
+<blockquote>
+<ol>
+<li><code>OBJ_ENCODING_INTSET</code><br>集合保存的所有元素都是整数值将会采用这种存储结构，但当集合对象保存的元素数量超过<font style=background-color:#f8f840>512 (由server.set_max_intset_entries 配置)个</font>后会转化为 OBJ_ENCODING_HT</li>
+<li><code>OBJ_ENCODING_HT</code><br>底层为 <code>dict</code> 字典，数据作为字典的键保存，键对应的值都是NULL，与 Java 中的 HashSet 类似</li>
+</ol>
+</blockquote>
+<h4 id="有序集合对象-ZSet"><a href="#有序集合对象-ZSet" class="headerlink" title="有序集合对象 ZSet"></a>有序集合对象 ZSet</h4><p><code>OBJ_ZSET</code> 有序集合对象的存储结构分为 <code>OBJ_ENCODING_SKIPLIST</code> 和 <code>OBJ_ENCODING_ZIPLIST</code> </p>
+<blockquote>
+<ol>
+<li><code>OBJ_ENCODING_ZIPLIST</code><br>当 ziplist 作为 zset 的底层存储结构时，每个集合元素使用两个紧挨在一起的压缩列表节点来保存，第一个节点保存元素值，第二个元素保存元素的分值，而且分值小的靠近表头，大的靠近表尾</li>
+</ol>
+<ul>
+<li>有序集合对象使用 ziplist 存储需要<font style=background-color:#f8f840>同时满足以下两个条件，不满足任意一条件将使用 skiplist</font><ul>
+<li>所有元素长度小于64 (server.zset_max_ziplist_value 配置)字节</li>
+<li>元素个数小于128 (server.zset-max-ziplist-entries 配置)</li>
+</ul>
+</li>
+</ul>
+</blockquote>
+<blockquote>
+<ol start="2">
+<li><code>OBJ_ENCODING_SKIPLIST</code><br>底层实现是跳跃表结合字典。每个跳跃表节点都保存一个集合元素，并按分值从小到大排列，节点的 object 属性保存了元素的值，score属性保存分值；字典的每个键值对保存一个集合元素，元素值包装为字典的键，元素分值保存为字典的值</li>
+</ol>
+<ul>
+<li><code>skiplist 同时使用跳跃表和字典实现的原因</code><ul>
+<li>跳跃表优点是有序，但是查询分值时复杂度为O(logn)；字典查询分值复杂度为O(1) ，但是无序，结合两者可以实现优势互补</li>
+<li>集合的元素成员和分值是共享的，跳跃表和字典通过指针指向同一地址，不会浪费内存</li>
+</ul>
+</li>
+</ul>
+</blockquote>
+<h4 id="哈希对象-Hash"><a href="#哈希对象-Hash" class="headerlink" title="哈希对象 Hash"></a>哈希对象 Hash</h4><p><code>OBJ_HASH</code> 的存储结构分为 <code>OBJ_ENCODING_ZIPLIST</code>  和 <code>OBJ_ENCODING_HT</code>，其实现如下：</p>
+<blockquote>
+<ol>
+<li><code>OBJ_ENCODING_ZIPLIST</code><br>在以 ziplist 结构存储数据的哈希对象中，key-value 键值对以紧密相连的方式存入压缩链表，先把key放入表尾，再放入value；键值对总是向表尾添加</li>
+</ol>
+<ul>
+<li>哈希对象使用 ziplist 存储数据需要<font style=background-color:#f8f840>同时满足以下两个条件，不满足任意一个都使用 dict 结构</font><ul>
+<li>所有键值对的键和值的字符串长度都小于64 (server.hash_max_ziplist_value 配置)字节</li>
+<li>键值对数量小于512(server.hash-max-ziplist-entries)个</li>
+</ul>
+</li>
+</ul>
+</blockquote>
+<blockquote>
+<ol start="2">
+<li><code>OBJ_ENCODING_HT</code><br>底层为 <code>dict</code> 字典，哈希对象中的每个 key-value 对都使用一个字典键值对<code>dictEntry</code>来保存，字典的键和值都是字符串对象</li>
+</ol>
+</blockquote>
+<h4 id="流对象-Stream"><a href="#流对象-Stream" class="headerlink" title="流对象 Stream"></a>流对象 Stream</h4><p><code>OBJ_ENCODING_STREAM</code> 流对象是 5.0 版本引入的新的数据对象，与列表对象 List 极为相似，但是功能更为强大，带有订阅发布的能力。其采用的存储结构 <code>OBJ_ENCODING_STREAM</code> 与其他的存储结构截然不同</p>
+<blockquote>
+<p><code>OBJ_ENCODING_STREAM</code><br>底层使用压缩前缀树(radix tree) 来存储字符串元素，从源文件 <code>rax.h</code> 的注释可以知道，radix tree 其实是字典树(Trie tree)的压缩优化版本，它会<font style=background-color:#f8f840>把多个只有一个子节点的连续节点保存的字符压缩到一个节点中</font></p>
+<ul>
+<li>Trie Tree 的原理<br>将每个字符串元素 key 按照单个字符拆分，然后对应到每个分支上。这样从根节点遍历到某个分支的叶节点，所有经过的节点保存的字符拼接出的字符串即为这条分支对应的元素 key</li>
+</ul>
+</blockquote>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line">Trie tree ：</span><br><span class="line"> *              (f) <span class="string">&quot;&quot;</span></span><br><span class="line"> *                \</span><br><span class="line"> *                (o) <span class="string">&quot;f&quot;</span></span><br><span class="line"> *                  \</span><br><span class="line"> *                  (o) <span class="string">&quot;fo&quot;</span></span><br><span class="line"> *                    \</span><br><span class="line"> *                  [t   b] <span class="string">&quot;foo&quot;</span></span><br><span class="line"> *                  /     \</span><br><span class="line"> *         <span class="string">&quot;foot&quot;</span> (e)     (a) <span class="string">&quot;foob&quot;</span></span><br><span class="line"> *                /         \</span><br><span class="line"> *      <span class="string">&quot;foote&quot;</span> (r)         (r) <span class="string">&quot;fooba&quot;</span></span><br><span class="line"> *              /             \</span><br><span class="line"> *    <span class="string">&quot;footer&quot;</span> []             [] <span class="string">&quot;foobar&quot;</span></span><br><span class="line"></span><br><span class="line"></span><br><span class="line">Radix tree:</span><br><span class="line">                   [<span class="string">&quot;foo&quot;</span>] <span class="string">&quot;&quot;</span></span><br><span class="line"> *                     |</span><br><span class="line"> *                  [t   b] <span class="string">&quot;foo&quot;</span></span><br><span class="line"> *                  /     \</span><br><span class="line"> *        <span class="string">&quot;foot&quot;</span> (<span class="string">&quot;er&quot;</span>)    (<span class="string">&quot;ar&quot;</span>) <span class="string">&quot;foob&quot;</span></span><br><span class="line"> *                 /          \</span><br><span class="line"> *       <span class="string">&quot;footer&quot;</span> []          [] <span class="string">&quot;foobar&quot;</span></span><br><span class="line"></span><br></pre></td></tr></table></figure></article><div class="post-copyright"><div class="post-copyright__author"><span class="post-copyright-meta">文章作者: </span><span class="post-copyright-info"><a href="https://yang00-74.github.io">nathan.yang</a></span></div><div class="post-copyright__type"><span class="post-copyright-meta">文章链接: </span><span class="post-copyright-info"><a href="https://yang00-74.github.io/2023/06/02/Redis-3/">https://yang00-74.github.io/2023/06/02/Redis-3/</a></span></div><div class="post-copyright__notice"><span class="post-copyright-meta">版权声明: </span><span class="post-copyright-info">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank">CC BY-NC-SA 4.0</a> 许可协议。转载请注明来自 <a href="https://yang00-74.github.io" target="_blank">谈谈1974</a>！</span></div></div><div class="tag_share"><div class="post-meta__tag-list"><a class="post-meta__tags" href="/tags/Redis/">Redis</a><a class="post-meta__tags" href="/tags/%E6%95%B0%E6%8D%AE%E7%BB%93%E6%9E%84/">数据结构</a></div><div class="post_share"><div class="social-share" data-image="https://i.loli.net/2021/02/24/5O1day2nriDzjSu.png" data-sites="facebook,twitter,wechat,weibo,qq"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/butterfly-extsrc/sharejs/dist/css/share.min.css" media="print" onload="this.media='all'"><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc/sharejs/dist/js/social-share.min.js" defer></script></div></div><nav class="pagination-post" id="pagination"><div class="prev-post pull-left"><a href="/2023/06/02/Redis-4/" title="Redis 6.0 源码阅读笔记(4)-String 数据类型源码分析"><div class="cover" style="background: var(--default-bg-color)"></div><div class="pagination-info"><div class="label">上一篇</div><div class="prev_info">Redis 6.0 源码阅读笔记(4)-String 数据类型源码分析</div></div></a></div><div class="next-post pull-right"><a href="/2023/05/30/Redis-2/" title="Redis 6.0 源码阅读笔记(2)-Redis 多线程原理"><div class="cover" style="background: var(--default-bg-color)"></div><div class="pagination-info"><div class="label">下一篇</div><div class="next_info">Redis 6.0 源码阅读笔记(2)-Redis 多线程原理</div></div></a></div></nav><div class="relatedPosts"><div class="headline"><i class="fas fa-thumbs-up fa-fw"></i><span>相关推荐</span></div><div class="relatedPosts-list"><div><a href="/2023/06/02/Redis-4/" title="Redis 6.0 源码阅读笔记(4)-String 数据类型源码分析"><div class="cover" style="background: var(--default-bg-color)"></div><div class="content is-center"><div class="date"><i class="far fa-calendar-alt fa-fw"></i> 2023-06-02</div><div class="title">Redis 6.0 源码阅读笔记(4)-String 数据类型源码分析</div></div></a></div><div><a href="/2023/06/02/Redis-7/" title="Redis 6.0 源码阅读笔记(7)-ZSet 数据类型源码分析"><div class="cover" style="background: var(--default-bg-color)"></div><div class="content is-center"><div class="date"><i class="far fa-calendar-alt fa-fw"></i> 2023-06-02</div><div class="title">Redis 6.0 源码阅读笔记(7)-ZSet 数据类型源码分析</div></div></a></div><div><a href="/2023/06/02/Redis-6/" title="Redis 6.0 源码阅读笔记(6)-Set 数据类型源码分析"><div class="cover" style="background: var(--default-bg-color)"></div><div class="content is-center"><div class="date"><i class="far fa-calendar-alt fa-fw"></i> 2023-06-02</div><div class="title">Redis 6.0 源码阅读笔记(6)-Set 数据类型源码分析</div></div></a></div><div><a href="/2023/06/02/Redis-5/" title="Redis 6.0 源码阅读笔记(5)-List 数据类型源码分析"><div class="cover" style="background: var(--default-bg-color)"></div><div class="content is-center"><div class="date"><i class="far fa-calendar-alt fa-fw"></i> 2023-06-02</div><div class="title">Redis 6.0 源码阅读笔记(5)-List 数据类型源码分析</div></div></a></div><div><a href="/2023/06/02/Redis-8/" title="Redis 6.0 源码阅读笔记(8)-Stream 数据类型源码分析"><div class="cover" style="background: var(--default-bg-color)"></div><div class="content is-center"><div class="date"><i class="far fa-calendar-alt fa-fw"></i> 2023-06-02</div><div class="title">Redis 6.0 源码阅读笔记(8)-Stream 数据类型源码分析</div></div></a></div><div><a href="/2023/05/30/Redis-2/" title="Redis 6.0 源码阅读笔记(2)-Redis 多线程原理"><div class="cover" style="background: var(--default-bg-color)"></div><div class="content is-center"><div class="date"><i class="far fa-calendar-alt fa-fw"></i> 2023-05-30</div><div class="title">Redis 6.0 源码阅读笔记(2)-Redis 多线程原理</div></div></a></div></div></div></div><div class="aside-content" id="aside-content"><div class="card-widget card-info"><div class="is-center"><div class="avatar-img"><img src="https://i.loli.net/2021/02/24/5O1day2nriDzjSu.png" onerror="this.onerror=null;this.src='/img/friend_404.gif'" alt="avatar"/></div><div class="author-info__name">nathan.yang</div><div class="author-info__description"></div></div><div class="card-info-data site-data is-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">17</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">8</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">6</div></a></div><a id="card-info-btn" target="_blank" rel="noopener" href="https://github.com/yang00-74"><i class="fab fa-github"></i><span>关注我</span></a></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn fa-shake"></i><span>公告</span></div><div class="announcement_content">Welcome to nathan blog</div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="fas fa-stream"></i><span>目录</span><span class="toc-percentage"></span></div><div class="toc-content"><ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#%E9%87%8D%E8%A6%81%E6%95%B0%E6%8D%AE%E7%BB%93%E6%9E%84"><span class="toc-number">1.</span> <span class="toc-text">重要数据结构</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#redisServer"><span class="toc-number">1.0.1.</span> <span class="toc-text">redisServer</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#redisDb"><span class="toc-number">1.0.2.</span> <span class="toc-text">redisDb</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#dict"><span class="toc-number">1.0.3.</span> <span class="toc-text">dict</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#dictht"><span class="toc-number">1.0.4.</span> <span class="toc-text">dictht</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#dictEntry"><span class="toc-number">1.0.5.</span> <span class="toc-text">dictEntry</span></a></li></ol></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E6%95%B0%E6%8D%AE%E7%B1%BB%E5%9E%8B"><span class="toc-number">2.</span> <span class="toc-text">数据类型</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#Redis-%E6%95%B0%E6%8D%AE%E5%AF%B9%E8%B1%A1%E7%BB%93%E6%9E%84"><span class="toc-number">2.0.1.</span> <span class="toc-text">Redis 数据对象结构</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#Redis-%E6%95%B0%E6%8D%AE%E7%B1%BB%E5%9E%8B%E5%8F%8A%E5%85%B6%E5%AD%98%E5%82%A8%E7%BB%93%E6%9E%84"><span class="toc-number">2.0.2.</span> <span class="toc-text">Redis 数据类型及其存储结构</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#%E5%AD%97%E7%AC%A6%E4%B8%B2%E5%AF%B9%E8%B1%A1-String"><span class="toc-number">2.0.2.1.</span> <span class="toc-text">字符串对象 String</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E5%88%97%E8%A1%A8%E5%AF%B9%E8%B1%A1-List"><span class="toc-number">2.0.2.2.</span> <span class="toc-text">列表对象 List</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E9%9B%86%E5%90%88%E5%AF%B9%E8%B1%A1-Set"><span class="toc-number">2.0.2.3.</span> <span class="toc-text">集合对象 Set</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E6%9C%89%E5%BA%8F%E9%9B%86%E5%90%88%E5%AF%B9%E8%B1%A1-ZSet"><span class="toc-number">2.0.2.4.</span> <span class="toc-text">有序集合对象 ZSet</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E5%93%88%E5%B8%8C%E5%AF%B9%E8%B1%A1-Hash"><span class="toc-number">2.0.2.5.</span> <span class="toc-text">哈希对象 Hash</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E6%B5%81%E5%AF%B9%E8%B1%A1-Stream"><span class="toc-number">2.0.2.6.</span> <span class="toc-text">流对象 Stream</span></a></li></ol></li></ol></li></ol></li></ol></div></div><div class="card-widget card-recent-post"><div class="item-headline"><i class="fas fa-history"></i><span>最新文章</span></div><div class="aside-list"><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2023/06/02/Redis-8/" title="Redis 6.0 源码阅读笔记(8)-Stream 数据类型源码分析">Redis 6.0 源码阅读笔记(8)-Stream 数据类型源码分析</a><time datetime="2023-06-02T08:21:51.000Z" title="发表于 2023-06-02 16:21:51">2023-06-02</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2023/06/02/Redis-7/" title="Redis 6.0 源码阅读笔记(7)-ZSet 数据类型源码分析">Redis 6.0 源码阅读笔记(7)-ZSet 数据类型源码分析</a><time datetime="2023-06-02T07:41:12.000Z" title="发表于 2023-06-02 15:41:12">2023-06-02</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2023/06/02/Redis-6/" title="Redis 6.0 源码阅读笔记(6)-Set 数据类型源码分析">Redis 6.0 源码阅读笔记(6)-Set 数据类型源码分析</a><time datetime="2023-06-02T07:41:08.000Z" title="发表于 2023-06-02 15:41:08">2023-06-02</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2023/06/02/Redis-5/" title="Redis 6.0 源码阅读笔记(5)-List 数据类型源码分析">Redis 6.0 源码阅读笔记(5)-List 数据类型源码分析</a><time datetime="2023-06-02T07:41:04.000Z" title="发表于 2023-06-02 15:41:04">2023-06-02</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2023/06/02/Redis-4/" title="Redis 6.0 源码阅读笔记(4)-String 数据类型源码分析">Redis 6.0 源码阅读笔记(4)-String 数据类型源码分析</a><time datetime="2023-06-02T07:39:09.000Z" title="发表于 2023-06-02 15:39:09">2023-06-02</time></div></div></div></div></div></div></main><footer id="footer" style="background: transparent"><div id="footer-wrap"><div class="copyright">&copy;2020 - 2023 By nathan.yang</div><div class="framework-info"><span>框架 </span><a target="_blank" rel="noopener" href="https://hexo.io">Hexo</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="noopener" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly</a></div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="readmode" type="button" title="阅读模式"><i class="fas fa-book-open"></i></button><button id="darkmode" type="button" title="浅色和深色模式转换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="单栏和双栏切换"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside_config" type="button" title="设置"><i class="fas fa-cog fa-spin"></i></button><button class="close" id="mobile-toc-button" type="button" title="目录"><i class="fas fa-list-ul"></i></button><button id="go-up" type="button" title="回到顶部"><span class="scroll-percent"></span><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/js/utils.js"></script><script src="/js/main.js"></script><script src="https://cdn.jsdelivr.net/npm/@fancyapps/ui/dist/fancybox/fancybox.umd.min.js"></script><div class="js-pjax"></div><script id="canvas_nest" defer="defer" color="0,0,255" opacity="0.7" zIndex="-1" count="99" mobile="false" src="https://cdn.jsdelivr.net/npm/butterfly-extsrc/dist/canvas-nest.min.js"></script><script id="click-show-text" src="https://cdn.jsdelivr.net/npm/butterfly-extsrc/dist/click-show-text.min.js" data-mobile="false" data-text="点,啥,呢" data-fontsize="15px" data-random="false" async="async"></script><script async data-pjax src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script></div></body></html>
