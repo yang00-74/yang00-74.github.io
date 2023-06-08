@@ -1,0 +1,191 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover"><title>Java 使用 VisualVM 排查内存泄露 | 谈谈1974</title><meta name="author" content="nathan.yang"><meta name="copyright" content="nathan.yang"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#ffffff"><meta name="description" content="问题发生线上突发告警，笔者负责的一个服务老年代内存使用率到达 75% 阈值，于是立即登录监控系统查看数据。拉长时间周期，查看最近 7 天的 GC 和老年代内存占用，监控截图如下。可以看到老年代占用内存的最低点在逐步抬升，初步判断是发生了内存泄露  排查过程初步排查从监控上看，这个服务的两个实例老年代内存占用情况并不一致，其中疑似发生内存泄露的是跑脚本的机器。于是登录到目标机器，首先执行 jmap">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Java 使用 VisualVM 排查内存泄露">
+<meta property="og:url" content="https://yang00-74.github.io/2023/06/08/Java-memory-leak/index.html">
+<meta property="og:site_name" content="谈谈1974">
+<meta property="og:description" content="问题发生线上突发告警，笔者负责的一个服务老年代内存使用率到达 75% 阈值，于是立即登录监控系统查看数据。拉长时间周期，查看最近 7 天的 GC 和老年代内存占用，监控截图如下。可以看到老年代占用内存的最低点在逐步抬升，初步判断是发生了内存泄露  排查过程初步排查从监控上看，这个服务的两个实例老年代内存占用情况并不一致，其中疑似发生内存泄露的是跑脚本的机器。于是登录到目标机器，首先执行 jmap">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://i.loli.net/2021/02/24/5O1day2nriDzjSu.png">
+<meta property="article:published_time" content="2023-06-08T01:42:10.000Z">
+<meta property="article:modified_time" content="2023-06-08T06:44:59.161Z">
+<meta property="article:author" content="nathan.yang">
+<meta property="article:tag" content="Java">
+<meta property="article:tag" content="Java 基础">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://i.loli.net/2021/02/24/5O1day2nriDzjSu.png"><link rel="shortcut icon" href="/img/drogan.jpg"><link rel="canonical" href="https://yang00-74.github.io/2023/06/08/Java-memory-leak/index.html"><link rel="preconnect" href="//cdn.jsdelivr.net"/><link rel="preconnect" href="//busuanzi.ibruce.info"/><link rel="stylesheet" href="/css/index.css"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free/css/all.min.css" media="print" onload="this.media='all'"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fancyapps/ui/dist/fancybox/fancybox.min.css" media="print" onload="this.media='all'"><script>const GLOBAL_CONFIG = {
+  root: '/',
+  algolia: undefined,
+  localSearch: undefined,
+  translate: undefined,
+  noticeOutdate: undefined,
+  highlight: {"plugin":"highlighjs","highlightCopy":true,"highlightLang":false,"highlightHeightLimit":false},
+  copy: {
+    success: '复制成功',
+    error: '复制错误',
+    noSupport: '浏览器不支持'
+  },
+  relativeDate: {
+    homepage: false,
+    post: false
+  },
+  runtime: '',
+  dateSuffix: {
+    just: '刚刚',
+    min: '分钟前',
+    hour: '小时前',
+    day: '天前',
+    month: '个月前'
+  },
+  copyright: undefined,
+  lightbox: 'fancybox',
+  Snackbar: undefined,
+  source: {
+    justifiedGallery: {
+      js: 'https://cdn.jsdelivr.net/npm/flickr-justified-gallery/dist/fjGallery.min.js',
+      css: 'https://cdn.jsdelivr.net/npm/flickr-justified-gallery/dist/fjGallery.min.css'
+    }
+  },
+  isPhotoFigcaption: false,
+  islazyload: false,
+  isAnchor: false,
+  percent: {
+    toc: true,
+    rightside: true,
+  },
+  autoDarkmode: false
+}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = {
+  title: 'Java 使用 VisualVM 排查内存泄露',
+  isPost: true,
+  isHome: false,
+  isHighlightShrink: false,
+  isToc: true,
+  postUpdate: '2023-06-08 14:44:59'
+}</script><noscript><style type="text/css">
+  #nav {
+    opacity: 1
+  }
+  .justified-gallery img {
+    opacity: 1
+  }
+
+  #recent-posts time,
+  #post-meta time {
+    display: inline !important
+  }
+</style></noscript><script>(win=>{
+    win.saveToLocal = {
+      set: function setWithExpiry(key, value, ttl) {
+        if (ttl === 0) return
+        const now = new Date()
+        const expiryDay = ttl * 86400000
+        const item = {
+          value: value,
+          expiry: now.getTime() + expiryDay,
+        }
+        localStorage.setItem(key, JSON.stringify(item))
+      },
+
+      get: function getWithExpiry(key) {
+        const itemStr = localStorage.getItem(key)
+
+        if (!itemStr) {
+          return undefined
+        }
+        const item = JSON.parse(itemStr)
+        const now = new Date()
+
+        if (now.getTime() > item.expiry) {
+          localStorage.removeItem(key)
+          return undefined
+        }
+        return item.value
+      }
+    }
+  
+    win.getScript = url => new Promise((resolve, reject) => {
+      const script = document.createElement('script')
+      script.src = url
+      script.async = true
+      script.onerror = reject
+      script.onload = script.onreadystatechange = function() {
+        const loadState = this.readyState
+        if (loadState && loadState !== 'loaded' && loadState !== 'complete') return
+        script.onload = script.onreadystatechange = null
+        resolve()
+      }
+      document.head.appendChild(script)
+    })
+  
+    win.getCSS = (url,id = false) => new Promise((resolve, reject) => {
+      const link = document.createElement('link')
+      link.rel = 'stylesheet'
+      link.href = url
+      if (id) link.id = id
+      link.onerror = reject
+      link.onload = link.onreadystatechange = function() {
+        const loadState = this.readyState
+        if (loadState && loadState !== 'loaded' && loadState !== 'complete') return
+        link.onload = link.onreadystatechange = null
+        resolve()
+      }
+      document.head.appendChild(link)
+    })
+  
+      win.activateDarkMode = function () {
+        document.documentElement.setAttribute('data-theme', 'dark')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#0d0d0d')
+        }
+      }
+      win.activateLightMode = function () {
+        document.documentElement.setAttribute('data-theme', 'light')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#ffffff')
+        }
+      }
+      const t = saveToLocal.get('theme')
+    
+          if (t === 'dark') activateDarkMode()
+          else if (t === 'light') activateLightMode()
+        
+      const asideStatus = saveToLocal.get('aside-status')
+      if (asideStatus !== undefined) {
+        if (asideStatus === 'hide') {
+          document.documentElement.classList.add('hide-aside')
+        } else {
+          document.documentElement.classList.remove('hide-aside')
+        }
+      }
+    
+    const detectApple = () => {
+      if(/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)){
+        document.documentElement.classList.add('apple')
+      }
+    }
+    detectApple()
+    })(window)</script><meta name="generator" content="Hexo 6.3.0"></head><body><div id="web_bg"></div><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="avatar-img is-center"><img src="https://i.loli.net/2021/02/24/5O1day2nriDzjSu.png" onerror="onerror=null;src='/img/friend_404.gif'" alt="avatar"/></div><div class="sidebar-site-data site-data is-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">27</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">9</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">11</div></a></div><hr/><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> 首页</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> 归档</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div></div></div></div><div class="post" id="body-wrap"><header class="not-top-img" id="page-header"><nav id="nav"><span id="blog-info"><a href="/" title="谈谈1974"><span class="site-name">谈谈1974</span></a></span><div id="menus"><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> 首页</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> 归档</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div></div><div id="toggle-menu"><a class="site-page" href="javascript:void(0);"><i class="fas fa-bars fa-fw"></i></a></div></div></nav></header><main class="layout" id="content-inner"><div id="post"><div id="post-info"><h1 class="post-title">Java 使用 VisualVM 排查内存泄露</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">发表于</span><time class="post-meta-date-created" datetime="2023-06-08T01:42:10.000Z" title="发表于 2023-06-08 09:42:10">2023-06-08</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">更新于</span><time class="post-meta-date-updated" datetime="2023-06-08T06:44:59.161Z" title="更新于 2023-06-08 14:44:59">2023-06-08</time></span><span class="post-meta-categories"><span class="post-meta-separator">|</span><i class="fas fa-inbox fa-fw post-meta-icon"></i><a class="post-meta-categories" href="/categories/Java-%E5%9F%BA%E7%A1%80/">Java 基础</a><i class="fas fa-angle-right post-meta-separator"></i><i class="fas fa-inbox fa-fw post-meta-icon"></i><a class="post-meta-categories" href="/categories/Java-%E5%9F%BA%E7%A1%80/JVM/">JVM</a></span></div><div class="meta-secondline"><span class="post-meta-separator">|</span><span class="post-meta-pv-cv" id="" data-flag-title="Java 使用 VisualVM 排查内存泄露"><i class="far fa-eye fa-fw post-meta-icon"></i><span class="post-meta-label">阅读量:</span><span id="busuanzi_value_page_pv"><i class="fa-solid fa-spinner fa-spin"></i></span></span></div></div></div><article class="post-content" id="article-container"><h1 id="问题发生"><a href="#问题发生" class="headerlink" title="问题发生"></a>问题发生</h1><p>线上突发告警，笔者负责的一个服务<font style=background-color:#f8f840>老年代内存使用率到达 75% 阈值</font>，于是立即登录监控系统查看数据。拉长时间周期，查看最近 7 天的 GC 和老年代内存占用，监控截图如下。<font style=background-color:#f8f840>可以看到老年代占用内存的最低点在逐步抬升，初步判断是发生了内存泄露</font></p>
+<p><img src="/../images/java-memory-leak-1.png" alt="在这里插入图片描述"></p>
+<h1 id="排查过程"><a href="#排查过程" class="headerlink" title="排查过程"></a>排查过程</h1><h3 id="初步排查"><a href="#初步排查" class="headerlink" title="初步排查"></a>初步排查</h3><p>从监控上看，这个服务的两个实例老年代内存占用情况并不一致，其中疑似发生内存泄露的是跑脚本的机器。于是登录到目标机器，首先执行 <code>jmap -histo 1 | head -n 100</code> 命令查看目标进程的堆内存占用前 100 的对象，<font style=background-color:#f8f840>发现其中 SkyWalking 的一个 trace 追踪对象 NoopSpan 实例总数达到了 2600 万之巨，内存占用也达到 600M，明显不正常</font><br><img src="/../images/java-memory-leak-2.jpeg" alt="在这里插入图片描述"></p>
+<h3 id="Visual-VM-内存分析"><a href="#Visual-VM-内存分析" class="headerlink" title="Visual VM 内存分析"></a>Visual VM 内存分析</h3><p>由于生产环境控制严格，不允许在线 dump 堆内存数据，于是在预发环境执行 <code>jmap -dump:format=b,file=/tmp/dump 1</code> 命令，将有相同问题的 java 进程的堆内存 dump 下来。下载拿到 dump 文件后，需要打开 VisualVM 加载该文件，以下为操作步骤</p>
+<ol>
+<li><p>首先打开 VisualVM，点击截图中的按钮加载 dump 文件<br><img src="/../images/java-memory-leak-3.png" alt="在这里插入图片描述"></p>
+</li>
+<li><p>dump 文件加载后，点击截图中框出来的按钮，切换选项卡为查看对象<br><img src="/../images/java-memory-leak-4.png" alt="在这里插入图片描述"></p>
+</li>
+<li><p>由于笔者初步排查已经确定了可疑的实例为 NoopSpan，故在对象选项卡界面直接过滤该对象，并展示其 <code>相关引用、GC root</code>。<font style=background-color:#f8f840>需注意 <code>GC root</code> 是引用链的起点，从 VisualVM 的分析可以看到 NoopSpan 的实例都是以 LinkedList 节点的形式存在，引用链条为 <code>FastThreadLocalThread -&gt; threadLocals(ThreadLocalMap) -&gt; table(ThreadLocalMap$Entry[] 数组) -&gt; [1](ThreadLocalMap$Entry 数组第一个元素) -&gt; value(键值对 ThreadLocalMap$Entry 的值) -&gt; activeSpanStack (SkyWalking 的 TracingContext 内部暂存 span 的 LinkedList) -&gt; 链表的一级级前后指针</code>，至此可以猜测是 ThradLocal 使用不当(例如 ThreadLocal 使用后没有remove)导致内存泄露</font><br><img src="/../images/java-memory-leak-5.png" alt="在这里插入图片描述"></p>
+</li>
+<li><p>确定了引用链，则可以看到 NoopSpan 应该是被封装为 LinkedList 的节点被保存在对象<font style=background-color:#f8f840>TracingContext#1</font> 的内部链表 <code>activeSpanStack</code> 中。此时查看该对象的链表的具体元素数据，可以看到总共有1万多个元素，点开第一个节点，查看该 LocalSpan 的名称，确定当前 SkyWalking 的 trace 记录的起点为这个 LocalSpan 的创建<br><img src="/../images/java-memory-leak-6.png" alt="在这里插入图片描述"></p>
+</li>
+</ol>
+<h3 id="代码分析"><a href="#代码分析" class="headerlink" title="代码分析"></a>代码分析</h3><ol>
+<li><p>在项目中搜索上一节分析出的 LocalSpan 名称，发现创建该 Span 主要是为了在多线程环境下跨线程传递 trace，创建入口为 <code>ContextManager#createLocalSpan()</code> 方法。这个方法会创建 Trace 上下文对象 TracingContext 并将其设置到 ThreadLocal 中，创建出  TracingContext 对象后还会调用其相关方法创建 LocalSpan 对象，并将创建的 LocalSpan 对象存入 TracingContext 内部的 <code>activeSpanStack</code> 链表。<font style=background-color:#f8f840>至此基本印证了 VisualVM 的引用分析，大致确定是 ThreadLocal 的使用导致了内存泄露</font></p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">static</span> AbstractSpan <span class="title function_">createLocalSpan</span><span class="params">(String operationName)</span> &#123;</span><br><span class="line">    operationName = StringUtil.cut(operationName, OPERATION_NAME_THRESHOLD);</span><br><span class="line">    <span class="type">AbstractTracerContext</span> <span class="variable">context</span> <span class="operator">=</span> getOrCreate(operationName, <span class="literal">false</span>);</span><br><span class="line">    <span class="keyword">return</span> context.createLocalSpan(operationName);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">private</span> <span class="keyword">static</span> AbstractTracerContext <span class="title function_">getOrCreate</span><span class="params">(String operationName, <span class="type">boolean</span> forceSampling)</span> &#123;</span><br><span class="line">    <span class="type">AbstractTracerContext</span> <span class="variable">context</span> <span class="operator">=</span> CONTEXT.get();</span><br><span class="line">    <span class="keyword">if</span> (context == <span class="literal">null</span>) &#123;</span><br><span class="line">        <span class="keyword">if</span> (StringUtil.isEmpty(operationName)) &#123;</span><br><span class="line">            <span class="keyword">if</span> (logger.isDebugEnable()) &#123;</span><br><span class="line">                logger.debug(<span class="string">&quot;No operation name, ignore this trace.&quot;</span>);</span><br><span class="line">            &#125;</span><br><span class="line">            context = <span class="keyword">new</span> <span class="title class_">IgnoredTracerContext</span>();</span><br><span class="line">        &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">            <span class="keyword">if</span> (EXTEND_SERVICE == <span class="literal">null</span>) &#123;</span><br><span class="line">                EXTEND_SERVICE = ServiceManager.INSTANCE.findService(ContextManagerExtendService.class);</span><br><span class="line">            &#125;</span><br><span class="line">            context = EXTEND_SERVICE.createTraceContext(operationName, forceSampling);</span><br><span class="line">        &#125;</span><br><span class="line">        CONTEXT.set(context);</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> context;</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+</li>
+<li><p>我们知道，<font style=background-color:#f8f840>在线程池环境下使用 ThreadLocal 如果忘记 remove 很容易发生内存泄漏</font>。继续阅读源码，发现 ThreadLocal 被移除的触发点在 <code>ContextManager#stopSpan()</code> 方法，<font style=background-color:#f8f840>该方法每调用一次就会将之前添加到 TracingContext 内部的 <code>activeSpanStack</code> 链表中的 Span 移除，直到链表元素数量为 0 才会去 remove 掉 ThreadLocal</font></p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title function_">stopSpan</span><span class="params">()</span> &#123;</span><br><span class="line">    <span class="keyword">final</span> <span class="type">AbstractTracerContext</span> <span class="variable">context</span> <span class="operator">=</span> get();</span><br><span class="line">    <span class="keyword">if</span> (Objects.isNull(context)) &#123;</span><br><span class="line">        <span class="keyword">return</span>;</span><br><span class="line">    &#125;</span><br><span class="line">    stopSpan(context.activeSpan(), context);</span><br><span class="line"></span><br><span class="line">&#125;</span><br><span class="line"><span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title function_">stopSpan</span><span class="params">(AbstractSpan span, <span class="keyword">final</span> AbstractTracerContext context)</span> &#123;</span><br><span class="line">    <span class="keyword">try</span> &#123;</span><br><span class="line">        <span class="keyword">if</span> (context.stopSpan(span)) &#123;</span><br><span class="line">            CONTEXT.remove();</span><br><span class="line">            RUNTIME_CONTEXT.remove();</span><br><span class="line">        &#125;</span><br><span class="line">    &#125; <span class="keyword">catch</span> (Throwable t) &#123;</span><br><span class="line">        <span class="comment">//</span></span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+</li>
+<li><p><font color=red>此时回到项目代码一看，问题一目了然，代码中创建了 LocalSpan 但是没有调用相关方法把它 stop 掉，导致 LocalSpan 一直在 TracingContext 内部的 <code>activeSpanStack</code> 链表中堆积，并且由于链表前后指针的存在无法回收，最终导致了内存泄漏</font></p>
+</li>
+</ol>
+</article><div class="post-copyright"><div class="post-copyright__author"><span class="post-copyright-meta">文章作者: </span><span class="post-copyright-info"><a href="https://yang00-74.github.io">nathan.yang</a></span></div><div class="post-copyright__type"><span class="post-copyright-meta">文章链接: </span><span class="post-copyright-info"><a href="https://yang00-74.github.io/2023/06/08/Java-memory-leak/">https://yang00-74.github.io/2023/06/08/Java-memory-leak/</a></span></div><div class="post-copyright__notice"><span class="post-copyright-meta">版权声明: </span><span class="post-copyright-info">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank">CC BY-NC-SA 4.0</a> 许可协议。转载请注明来自 <a href="https://yang00-74.github.io" target="_blank">谈谈1974</a>！</span></div></div><div class="tag_share"><div class="post-meta__tag-list"><a class="post-meta__tags" href="/tags/Java/">Java</a><a class="post-meta__tags" href="/tags/Java-%E5%9F%BA%E7%A1%80/">Java 基础</a></div><div class="post_share"><div class="social-share" data-image="https://i.loli.net/2021/02/24/5O1day2nriDzjSu.png" data-sites="facebook,twitter,wechat,weibo,qq"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/butterfly-extsrc/sharejs/dist/css/share.min.css" media="print" onload="this.media='all'"><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc/sharejs/dist/js/social-share.min.js" defer></script></div></div><nav class="pagination-post" id="pagination"><div class="prev-post pull-left"><a href="/2023/06/08/Redis-rdb/" title="Redis 持久化 RDB 详解"><div class="cover" style="background: var(--default-bg-color)"></div><div class="pagination-info"><div class="label">上一篇</div><div class="prev_info">Redis 持久化 RDB 详解</div></div></a></div><div class="next-post pull-right"><a href="/2023/06/06/Redis-13/" title="Redis 6.0 源码阅读笔记(13)-Redis 集群节点选举流程"><div class="cover" style="background: var(--default-bg-color)"></div><div class="pagination-info"><div class="label">下一篇</div><div class="next_info">Redis 6.0 源码阅读笔记(13)-Redis 集群节点选举流程</div></div></a></div></nav><div class="relatedPosts"><div class="headline"><i class="fas fa-thumbs-up fa-fw"></i><span>相关推荐</span></div><div class="relatedPosts-list"><div><a href="/2023/06/05/Java-object-layout/" title="Java 对象内存布局详解"><div class="cover" style="background: var(--default-bg-color)"></div><div class="content is-center"><div class="date"><i class="far fa-calendar-alt fa-fw"></i> 2023-06-05</div><div class="title">Java 对象内存布局详解</div></div></a></div><div><a href="/2023/05/29/Netty-1/" title="Netty源码分析(1)-核心组件与架构"><div class="cover" style="background: var(--default-bg-color)"></div><div class="content is-center"><div class="date"><i class="far fa-calendar-alt fa-fw"></i> 2023-05-29</div><div class="title">Netty源码分析(1)-核心组件与架构</div></div></a></div><div><a href="/2023/05/29/Netty-3/" title="Netty源码分析(3)-服务端新建连接处理"><div class="cover" style="background: var(--default-bg-color)"></div><div class="content is-center"><div class="date"><i class="far fa-calendar-alt fa-fw"></i> 2023-05-29</div><div class="title">Netty源码分析(3)-服务端新建连接处理</div></div></a></div><div><a href="/2023/05/29/Netty-4/" title="Netty源码分析(4)-SubReactor 读写数据流程解析"><div class="cover" style="background: var(--default-bg-color)"></div><div class="content is-center"><div class="date"><i class="far fa-calendar-alt fa-fw"></i> 2023-05-29</div><div class="title">Netty源码分析(4)-SubReactor 读写数据流程解析</div></div></a></div><div><a href="/2023/05/29/Netty-2/" title="Netty源码分析(2)-服务端启动流程"><div class="cover" style="background: var(--default-bg-color)"></div><div class="content is-center"><div class="date"><i class="far fa-calendar-alt fa-fw"></i> 2023-05-29</div><div class="title">Netty源码分析(2)-服务端启动流程</div></div></a></div><div><a href="/2023/05/29/Java-8-ConcurrentHashMap/" title="Java 8 ConcurrentHashMap 源码分析"><div class="cover" style="background: var(--default-bg-color)"></div><div class="content is-center"><div class="date"><i class="far fa-calendar-alt fa-fw"></i> 2023-05-29</div><div class="title">Java 8 ConcurrentHashMap 源码分析</div></div></a></div></div></div></div><div class="aside-content" id="aside-content"><div class="card-widget card-info"><div class="is-center"><div class="avatar-img"><img src="https://i.loli.net/2021/02/24/5O1day2nriDzjSu.png" onerror="this.onerror=null;this.src='/img/friend_404.gif'" alt="avatar"/></div><div class="author-info__name">nathan.yang</div><div class="author-info__description"></div></div><div class="card-info-data site-data is-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">27</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">9</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">11</div></a></div><a id="card-info-btn" target="_blank" rel="noopener" href="https://github.com/yang00-74"><i class="fab fa-github"></i><span>关注我</span></a></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn fa-shake"></i><span>公告</span></div><div class="announcement_content">Welcome to nathan blog</div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="fas fa-stream"></i><span>目录</span><span class="toc-percentage"></span></div><div class="toc-content"><ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#%E9%97%AE%E9%A2%98%E5%8F%91%E7%94%9F"><span class="toc-number">1.</span> <span class="toc-text">问题发生</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E6%8E%92%E6%9F%A5%E8%BF%87%E7%A8%8B"><span class="toc-number">2.</span> <span class="toc-text">排查过程</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%88%9D%E6%AD%A5%E6%8E%92%E6%9F%A5"><span class="toc-number">2.0.1.</span> <span class="toc-text">初步排查</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#Visual-VM-%E5%86%85%E5%AD%98%E5%88%86%E6%9E%90"><span class="toc-number">2.0.2.</span> <span class="toc-text">Visual VM 内存分析</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E4%BB%A3%E7%A0%81%E5%88%86%E6%9E%90"><span class="toc-number">2.0.3.</span> <span class="toc-text">代码分析</span></a></li></ol></li></ol></li></ol></div></div><div class="card-widget card-recent-post"><div class="item-headline"><i class="fas fa-history"></i><span>最新文章</span></div><div class="aside-list"><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2023/06/08/Redis-rdb/" title="Redis 持久化 RDB 详解">Redis 持久化 RDB 详解</a><time datetime="2023-06-08T08:23:11.000Z" title="发表于 2023-06-08 16:23:11">2023-06-08</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2023/06/08/Java-memory-leak/" title="Java 使用 VisualVM 排查内存泄露">Java 使用 VisualVM 排查内存泄露</a><time datetime="2023-06-08T01:42:10.000Z" title="发表于 2023-06-08 09:42:10">2023-06-08</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2023/06/06/Redis-13/" title="Redis 6.0 源码阅读笔记(13)-Redis 集群节点选举流程">Redis 6.0 源码阅读笔记(13)-Redis 集群节点选举流程</a><time datetime="2023-06-06T12:44:54.000Z" title="发表于 2023-06-06 20:44:54">2023-06-06</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2023/06/06/Redis-12/" title="Redis 6.0 源码阅读笔记(12)-Redis 集群建立流程">Redis 6.0 源码阅读笔记(12)-Redis 集群建立流程</a><time datetime="2023-06-06T12:31:52.000Z" title="发表于 2023-06-06 20:31:52">2023-06-06</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2023/06/06/Redis-cluster/" title="RedisCluster 集群实现原理">RedisCluster 集群实现原理</a><time datetime="2023-06-06T12:25:19.000Z" title="发表于 2023-06-06 20:25:19">2023-06-06</time></div></div></div></div></div></div></main><footer id="footer" style="background: transparent"><div id="footer-wrap"><div class="copyright">&copy;2020 - 2023 By nathan.yang</div><div class="framework-info"><span>框架 </span><a target="_blank" rel="noopener" href="https://hexo.io">Hexo</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="noopener" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly</a></div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="readmode" type="button" title="阅读模式"><i class="fas fa-book-open"></i></button><button id="darkmode" type="button" title="浅色和深色模式转换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="单栏和双栏切换"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside_config" type="button" title="设置"><i class="fas fa-cog fa-spin"></i></button><button class="close" id="mobile-toc-button" type="button" title="目录"><i class="fas fa-list-ul"></i></button><button id="go-up" type="button" title="回到顶部"><span class="scroll-percent"></span><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/js/utils.js"></script><script src="/js/main.js"></script><script src="https://cdn.jsdelivr.net/npm/@fancyapps/ui/dist/fancybox/fancybox.umd.min.js"></script><div class="js-pjax"></div><script id="canvas_nest" defer="defer" color="0,0,255" opacity="0.7" zIndex="-1" count="99" mobile="false" src="https://cdn.jsdelivr.net/npm/butterfly-extsrc/dist/canvas-nest.min.js"></script><script id="click-show-text" src="https://cdn.jsdelivr.net/npm/butterfly-extsrc/dist/click-show-text.min.js" data-mobile="false" data-text="点,啥,呢" data-fontsize="15px" data-random="false" async="async"></script><script async data-pjax src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script></div></body></html>
