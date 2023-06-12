@@ -1,0 +1,250 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover"><title>Tomcat 9.0 源码分析(1)-结构组成与核心组件 | 谈谈1974</title><meta name="author" content="nathan.yang"><meta name="copyright" content="nathan.yang"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#ffffff"><meta name="description" content="Tomcat 架构 以上是一个网络请求在 Tomcat 内部流转的结构示意图，本系列文章涉及的源码都基于 Tomcat 9.0.33 版本。由上图可知，Tomcat 宏观上的结构分为以下两部分：   服务器 ServerServer 代表了一个 Tomcat 实例，一个 Server 可以包括多个 Service。Server 的主要功能是抽象出一个服务器的结构，同时维护它所包含的所有 Servi">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Tomcat 9.0 源码分析(1)-结构组成与核心组件">
+<meta property="og:url" content="https://yang00-74.github.io/2023/06/12/Tomcat-1/index.html">
+<meta property="og:site_name" content="谈谈1974">
+<meta property="og:description" content="Tomcat 架构 以上是一个网络请求在 Tomcat 内部流转的结构示意图，本系列文章涉及的源码都基于 Tomcat 9.0.33 版本。由上图可知，Tomcat 宏观上的结构分为以下两部分：   服务器 ServerServer 代表了一个 Tomcat 实例，一个 Server 可以包括多个 Service。Server 的主要功能是抽象出一个服务器的结构，同时维护它所包含的所有 Servi">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://i.loli.net/2021/02/24/5O1day2nriDzjSu.png">
+<meta property="article:published_time" content="2023-06-12T08:45:46.000Z">
+<meta property="article:modified_time" content="2023-06-12T08:54:53.958Z">
+<meta property="article:author" content="nathan.yang">
+<meta property="article:tag" content="Tomcat">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://i.loli.net/2021/02/24/5O1day2nriDzjSu.png"><link rel="shortcut icon" href="/img/drogan.jpg"><link rel="canonical" href="https://yang00-74.github.io/2023/06/12/Tomcat-1/index.html"><link rel="preconnect" href="//cdn.jsdelivr.net"/><link rel="preconnect" href="//busuanzi.ibruce.info"/><link rel="stylesheet" href="/css/index.css"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free/css/all.min.css" media="print" onload="this.media='all'"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fancyapps/ui/dist/fancybox/fancybox.min.css" media="print" onload="this.media='all'"><script>const GLOBAL_CONFIG = {
+  root: '/',
+  algolia: undefined,
+  localSearch: undefined,
+  translate: undefined,
+  noticeOutdate: undefined,
+  highlight: {"plugin":"highlighjs","highlightCopy":true,"highlightLang":false,"highlightHeightLimit":false},
+  copy: {
+    success: '复制成功',
+    error: '复制错误',
+    noSupport: '浏览器不支持'
+  },
+  relativeDate: {
+    homepage: false,
+    post: false
+  },
+  runtime: '',
+  dateSuffix: {
+    just: '刚刚',
+    min: '分钟前',
+    hour: '小时前',
+    day: '天前',
+    month: '个月前'
+  },
+  copyright: undefined,
+  lightbox: 'fancybox',
+  Snackbar: undefined,
+  source: {
+    justifiedGallery: {
+      js: 'https://cdn.jsdelivr.net/npm/flickr-justified-gallery/dist/fjGallery.min.js',
+      css: 'https://cdn.jsdelivr.net/npm/flickr-justified-gallery/dist/fjGallery.min.css'
+    }
+  },
+  isPhotoFigcaption: false,
+  islazyload: false,
+  isAnchor: false,
+  percent: {
+    toc: true,
+    rightside: true,
+  },
+  autoDarkmode: false
+}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = {
+  title: 'Tomcat 9.0 源码分析(1)-结构组成与核心组件',
+  isPost: true,
+  isHome: false,
+  isHighlightShrink: false,
+  isToc: true,
+  postUpdate: '2023-06-12 16:54:53'
+}</script><noscript><style type="text/css">
+  #nav {
+    opacity: 1
+  }
+  .justified-gallery img {
+    opacity: 1
+  }
+
+  #recent-posts time,
+  #post-meta time {
+    display: inline !important
+  }
+</style></noscript><script>(win=>{
+    win.saveToLocal = {
+      set: function setWithExpiry(key, value, ttl) {
+        if (ttl === 0) return
+        const now = new Date()
+        const expiryDay = ttl * 86400000
+        const item = {
+          value: value,
+          expiry: now.getTime() + expiryDay,
+        }
+        localStorage.setItem(key, JSON.stringify(item))
+      },
+
+      get: function getWithExpiry(key) {
+        const itemStr = localStorage.getItem(key)
+
+        if (!itemStr) {
+          return undefined
+        }
+        const item = JSON.parse(itemStr)
+        const now = new Date()
+
+        if (now.getTime() > item.expiry) {
+          localStorage.removeItem(key)
+          return undefined
+        }
+        return item.value
+      }
+    }
+  
+    win.getScript = url => new Promise((resolve, reject) => {
+      const script = document.createElement('script')
+      script.src = url
+      script.async = true
+      script.onerror = reject
+      script.onload = script.onreadystatechange = function() {
+        const loadState = this.readyState
+        if (loadState && loadState !== 'loaded' && loadState !== 'complete') return
+        script.onload = script.onreadystatechange = null
+        resolve()
+      }
+      document.head.appendChild(script)
+    })
+  
+    win.getCSS = (url,id = false) => new Promise((resolve, reject) => {
+      const link = document.createElement('link')
+      link.rel = 'stylesheet'
+      link.href = url
+      if (id) link.id = id
+      link.onerror = reject
+      link.onload = link.onreadystatechange = function() {
+        const loadState = this.readyState
+        if (loadState && loadState !== 'loaded' && loadState !== 'complete') return
+        link.onload = link.onreadystatechange = null
+        resolve()
+      }
+      document.head.appendChild(link)
+    })
+  
+      win.activateDarkMode = function () {
+        document.documentElement.setAttribute('data-theme', 'dark')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#0d0d0d')
+        }
+      }
+      win.activateLightMode = function () {
+        document.documentElement.setAttribute('data-theme', 'light')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#ffffff')
+        }
+      }
+      const t = saveToLocal.get('theme')
+    
+          if (t === 'dark') activateDarkMode()
+          else if (t === 'light') activateLightMode()
+        
+      const asideStatus = saveToLocal.get('aside-status')
+      if (asideStatus !== undefined) {
+        if (asideStatus === 'hide') {
+          document.documentElement.classList.add('hide-aside')
+        } else {
+          document.documentElement.classList.remove('hide-aside')
+        }
+      }
+    
+    const detectApple = () => {
+      if(/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)){
+        document.documentElement.classList.add('apple')
+      }
+    }
+    detectApple()
+    })(window)</script><meta name="generator" content="Hexo 6.3.0"></head><body><div id="web_bg"></div><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="avatar-img is-center"><img src="https://i.loli.net/2021/02/24/5O1day2nriDzjSu.png" onerror="onerror=null;src='/img/friend_404.gif'" alt="avatar"/></div><div class="sidebar-site-data site-data is-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">31</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">10</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">11</div></a></div><hr/><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> 首页</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> 归档</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div></div></div></div><div class="post" id="body-wrap"><header class="not-top-img" id="page-header"><nav id="nav"><span id="blog-info"><a href="/" title="谈谈1974"><span class="site-name">谈谈1974</span></a></span><div id="menus"><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> 首页</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> 归档</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div></div><div id="toggle-menu"><a class="site-page" href="javascript:void(0);"><i class="fas fa-bars fa-fw"></i></a></div></div></nav></header><main class="layout" id="content-inner"><div id="post"><div id="post-info"><h1 class="post-title">Tomcat 9.0 源码分析(1)-结构组成与核心组件</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">发表于</span><time class="post-meta-date-created" datetime="2023-06-12T08:45:46.000Z" title="发表于 2023-06-12 16:45:46">2023-06-12</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">更新于</span><time class="post-meta-date-updated" datetime="2023-06-12T08:54:53.958Z" title="更新于 2023-06-12 16:54:53">2023-06-12</time></span><span class="post-meta-categories"><span class="post-meta-separator">|</span><i class="fas fa-inbox fa-fw post-meta-icon"></i><a class="post-meta-categories" href="/categories/Tomcat-%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90/">Tomcat 源码分析</a></span></div><div class="meta-secondline"><span class="post-meta-separator">|</span><span class="post-meta-pv-cv" id="" data-flag-title="Tomcat 9.0 源码分析(1)-结构组成与核心组件"><i class="far fa-eye fa-fw post-meta-icon"></i><span class="post-meta-label">阅读量:</span><span id="busuanzi_value_page_pv"><i class="fa-solid fa-spinner fa-spin"></i></span></span></div></div></div><article class="post-content" id="article-container"><h1 id="Tomcat-架构"><a href="#Tomcat-架构" class="headerlink" title="Tomcat 架构"></a>Tomcat 架构</h1><p><img src="/../images/tomcat-1-1.jpeg" alt="在这里插入图片描述"></p>
+<p>以上是一个网络请求在 Tomcat 内部流转的结构示意图，本系列文章涉及的源码都基于 <a target="_blank" rel="noopener" href="https://github.com/apache/tomcat/tree/9.0.x">Tomcat 9.0.33 版本</a>。由上图可知，Tomcat 宏观上的结构分为以下两部分：</p>
+<blockquote>
+<ol>
+<li><code>服务器 Server</code><br>Server 代表了一个 Tomcat 实例，一个 Server 可以包括多个 Service。Server 的主要功能是抽象出一个服务器的结构，同时维护它所包含的所有 Service 的生命周期，包括初始化、结束服务等</li>
+<li><code>服务 Service</code><br>Service 是 Server 内部的组件，负责对外提供服务。 一个 Tomcat 实例支持部署多个彼此端口隔离的站点，这就是通过配置多个 Service 实现的。一个 Service 可以包含多个 Connector，也就是可以监听多个端口，但是只能包含一个 Container。<font style=background-color:#f8f840>其中 Connector 的作用是接收来自客户端的请求，Container 的作用是处理接收进来的请求</font></li>
+</ol>
+</blockquote>
+<h1 id="Connector-底层连接器"><a href="#Connector-底层连接器" class="headerlink" title="Connector 底层连接器"></a>Connector 底层连接器</h1><p><code>Connector</code> 连接器面向底层数据传输，主要完成以下核心功能：</p>
+<blockquote>
+<ol>
+<li>处理 socket 通信，按照应用层协议解析处理数据，将网络数据封装成底层 Request&#x2F;Response 对象</li>
+<li>将底层 Request&#x2F;Response 对象转换为 Servlet 容器能处理的标准 ServletRequest&#x2F;ServletResponse，并将其投进 Container 容器进行处理</li>
+</ol>
+<hr>
+<p>为了实现以上功能，Tomcat 将 <code>Connector</code> 连接器分为两个组件，分别是 <code>ProtocolHandler</code> 和 <code>Adapter</code>。其中 <code>ProtocolHandler</code> 又是由 <code>EndPoint</code> 和 <code>Processor</code> 组成。<font style=background-color:#f8f840>从一个请求的处理流程来看，Endpoint 负责提供请求字节流给 Processor，Processor 负责转换 Tomcat 定义的 Request 对象给 Adapter，Adapter 负责提供标准的 ServletRequest 对象给 Servlet 容器</font></p>
+</blockquote>
+<p>连接器 <code>Connector</code> 的重要属性如下，可以看到其构造方法中会使用反射创建 <code>ProtocolHandler</code> 协议处理器，默认的协议处理器为 <code>Http11NioProtocol</code></p>
+<blockquote>
+<ol>
+<li><code>protocolHandler</code>: 协议处理器实例，负责处理底层网络数据</li>
+<li><code>adapter</code>: 适配器，会在连接器 <code>Connector</code> 初始化时创建</li>
+</ol>
+</blockquote>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="title function_">Connector</span><span class="params">()</span> &#123;</span><br><span class="line">        <span class="built_in">this</span>(<span class="string">&quot;org.apache.coyote.http11.Http11NioProtocol&quot;</span>);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> <span class="title function_">Connector</span><span class="params">(String protocol)</span> &#123;</span><br><span class="line">        <span class="type">boolean</span> <span class="variable">aprConnector</span> <span class="operator">=</span> AprLifecycleListener.isAprAvailable() &amp;&amp;</span><br><span class="line">                AprLifecycleListener.getUseAprConnector();</span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> (<span class="string">&quot;HTTP/1.1&quot;</span>.equals(protocol) || protocol == <span class="literal">null</span>) &#123;</span><br><span class="line">            <span class="keyword">if</span> (aprConnector) &#123;</span><br><span class="line">                protocolHandlerClassName = <span class="string">&quot;org.apache.coyote.http11.Http11AprProtocol&quot;</span>;</span><br><span class="line">            &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">                protocolHandlerClassName = <span class="string">&quot;org.apache.coyote.http11.Http11NioProtocol&quot;</span>;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125; <span class="keyword">else</span> <span class="keyword">if</span> (<span class="string">&quot;AJP/1.3&quot;</span>.equals(protocol)) &#123;</span><br><span class="line">            <span class="keyword">if</span> (aprConnector) &#123;</span><br><span class="line">                protocolHandlerClassName = <span class="string">&quot;org.apache.coyote.ajp.AjpAprProtocol&quot;</span>;</span><br><span class="line">            &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">                protocolHandlerClassName = <span class="string">&quot;org.apache.coyote.ajp.AjpNioProtocol&quot;</span>;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">            protocolHandlerClassName = protocol;</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="comment">// Instantiate protocol handler</span></span><br><span class="line">        <span class="type">ProtocolHandler</span> <span class="variable">p</span> <span class="operator">=</span> <span class="literal">null</span>;</span><br><span class="line">        <span class="keyword">try</span> &#123;</span><br><span class="line">            Class&lt;?&gt; clazz = Class.forName(protocolHandlerClassName);</span><br><span class="line">            p = (ProtocolHandler) clazz.getConstructor().newInstance();</span><br><span class="line">        &#125; <span class="keyword">catch</span> (Exception e) &#123;</span><br><span class="line">            log.error(sm.getString(</span><br><span class="line">                    <span class="string">&quot;coyoteConnector.protocolHandlerInstantiationFailed&quot;</span>), e);</span><br><span class="line">        &#125; <span class="keyword">finally</span> &#123;</span><br><span class="line">            <span class="built_in">this</span>.protocolHandler = p;</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="comment">// Default for Connector depends on this system property</span></span><br><span class="line">        setThrowOnFailure(Boolean.getBoolean(<span class="string">&quot;org.apache.catalina.startup.EXIT_ON_INIT_FAILURE&quot;</span>));</span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure>
+
+
+<h3 id="协议处理器-ProtocolHandler"><a href="#协议处理器-ProtocolHandler" class="headerlink" title="协议处理器 ProtocolHandler"></a>协议处理器 ProtocolHandler</h3><p>协议处理器 <code>ProtocolHandler</code> 是处理 socket 数据的重要组件，Tomcat 结合应用层协议和 I&#x2F;O 模型来组合定义具体的实现类，<font style=background-color:#f8f840>例如 Http11NioProtocol 就是对应 HTTP&#x2F;1.1 协议使用 NIO 模型的实现</font>，默认的<code>ProtocolHandler</code>实现类就是<code>Http11NioProtocol</code></p>
+<p><code>Http11NioProtocol</code>的重要属性其实分布在其重要父类 <code>AbstractProtocol</code> 中，可以看到 <code>Http11NioProtocol</code> 被创建的时候会创建对应的 <code>Endpoint</code> 实例</p>
+<blockquote>
+<ol>
+<li><code>endpoint</code>:  端点对象，负责直接对接底层 socket，分发 socket 读取任务</li>
+<li><code>waitingProcessors</code>: 等待处理的 Processor 队列，如果一个请求被 Tomcat 异步处理，如 <code>DeferredResult</code> ，这个请求所属的 Processor 就会被加入到等待队列中</li>
+<li><code>handler</code>: 端点内部处理器，负责连接端点 <code>Endpoint</code>  和协议解析器 <code>Processor</code>，<code>Processor</code> 对象将在每次读取数据时新建</li>
+</ol>
+</blockquote>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="title function_">Http11NioProtocol</span><span class="params">()</span> &#123;</span><br><span class="line">        <span class="built_in">super</span>(<span class="keyword">new</span> <span class="title class_">NioEndpoint</span>());</span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure>
+
+<p><img src="/../images/tomcat-1-2.png" alt="在这里插入图片描述"></p>
+<h4 id="端点-EndPoint"><a href="#端点-EndPoint" class="headerlink" title="端点 EndPoint"></a>端点 EndPoint</h4><p><code>EndPoint</code> 是处理底层读写的核心，当有数据读取时，会通知到协议解析器 <code>Processor</code> 处理，其关键属性如下：</p>
+<blockquote>
+<ol>
+<li><code>acceptor</code>: 端点内部连接接收器，负责建立 socket 连接，分布在父类 <code>AbstractEndpoint</code> 中</li>
+<li><code>poller</code>: 轮询器，负责注册连接及轮询连接上的读写事件</li>
+</ol>
+</blockquote>
+<p><img src="/../images/tomcat-1-3.png" alt="在这里插入图片描述"></p>
+<h4 id="处理器-Processor"><a href="#处理器-Processor" class="headerlink" title="处理器 Processor"></a>处理器 Processor</h4><p><code>Processor</code> 负责读取 socket 流中的数据，按照协议将其解析组装成底层的 <code>Request/Response</code> 对象，完毕后负责将 <code>Request/Response</code> 对象投进 <code>Adapter</code> 中进行下一步处理，以 <code>Http11Processor</code> 为例，关键属性如下:</p>
+<blockquote>
+<ol>
+<li><code>protocol</code>: 当前 <code>Processor</code>  对象所属的协议处理器对象</li>
+<li><code>adapter</code>: 适配器对象，数据解析完毕后需要通过该对象投递进适配器进行下一步处理</li>
+<li><code>inputBuffer</code>: 输入数据缓冲对象</li>
+<li><code>outputBuffer</code>: 输出数据缓冲对象</li>
+</ol>
+</blockquote>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="title function_">Http11Processor</span><span class="params">(AbstractHttp11Protocol&lt;?&gt; protocol, Adapter adapter)</span> &#123;</span><br><span class="line">        <span class="built_in">super</span>(adapter);</span><br><span class="line">        <span class="built_in">this</span>.protocol = protocol;</span><br><span class="line"></span><br><span class="line">        httpParser = <span class="keyword">new</span> <span class="title class_">HttpParser</span>(protocol.getRelaxedPathChars(),</span><br><span class="line">                protocol.getRelaxedQueryChars());</span><br><span class="line"></span><br><span class="line">        inputBuffer = <span class="keyword">new</span> <span class="title class_">Http11InputBuffer</span>(request, protocol.getMaxHttpHeaderSize(),</span><br><span class="line">                protocol.getRejectIllegalHeader(), httpParser);</span><br><span class="line">        request.setInputBuffer(inputBuffer);</span><br><span class="line"></span><br><span class="line">        outputBuffer = <span class="keyword">new</span> <span class="title class_">Http11OutputBuffer</span>(response, protocol.getMaxHttpHeaderSize());</span><br><span class="line">        response.setOutputBuffer(outputBuffer);</span><br><span class="line"></span><br><span class="line">        <span class="comment">// Create and add the identity filters.</span></span><br><span class="line">        inputBuffer.addFilter(<span class="keyword">new</span> <span class="title class_">IdentityInputFilter</span>(protocol.getMaxSwallowSize()));</span><br><span class="line">        outputBuffer.addFilter(<span class="keyword">new</span> <span class="title class_">IdentityOutputFilter</span>());</span><br><span class="line"></span><br><span class="line">        <span class="comment">// Create and add the chunked filters.</span></span><br><span class="line">        inputBuffer.addFilter(<span class="keyword">new</span> <span class="title class_">ChunkedInputFilter</span>(protocol.getMaxTrailerSize(),</span><br><span class="line">                protocol.getAllowedTrailerHeadersInternal(), protocol.getMaxExtensionSize(),</span><br><span class="line">                protocol.getMaxSwallowSize()));</span><br><span class="line">        outputBuffer.addFilter(<span class="keyword">new</span> <span class="title class_">ChunkedOutputFilter</span>());</span><br><span class="line"></span><br><span class="line">        <span class="comment">// Create and add the void filters.</span></span><br><span class="line">        inputBuffer.addFilter(<span class="keyword">new</span> <span class="title class_">VoidInputFilter</span>());</span><br><span class="line">        outputBuffer.addFilter(<span class="keyword">new</span> <span class="title class_">VoidOutputFilter</span>());</span><br><span class="line"></span><br><span class="line">        <span class="comment">// Create and add buffered input filter</span></span><br><span class="line">        inputBuffer.addFilter(<span class="keyword">new</span> <span class="title class_">BufferedInputFilter</span>());</span><br><span class="line"></span><br><span class="line">        <span class="comment">// Create and add the gzip filters.</span></span><br><span class="line">        <span class="comment">//inputBuffer.addFilter(new GzipInputFilter());</span></span><br><span class="line">        outputBuffer.addFilter(<span class="keyword">new</span> <span class="title class_">GzipOutputFilter</span>());</span><br><span class="line"></span><br><span class="line">        pluggableFilterIndex = inputBuffer.getFilters().length;</span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure>
+
+<p><img src="/../images/tomcat-1-4.png" alt="在这里插入图片描述"></p>
+<h3 id="适配器-Adapter"><a href="#适配器-Adapter" class="headerlink" title="适配器 Adapter"></a>适配器 Adapter</h3><p><code>Adapter</code> 适配器只有一个实现类 <code>CoyoteAdapter</code>，其关键属性如下：</p>
+<blockquote>
+<p><code>connector</code>: 当前 <code>Adapter</code> 所属的连接器对象。适配器处理完 Request 数据转换后需要通过连接器对象获取到所属 Service，再通过 Service 找到 Engine 容器，将请求投递进容器中</p>
+</blockquote>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="title function_">CoyoteAdapter</span><span class="params">(Connector connector)</span> &#123;</span><br><span class="line"></span><br><span class="line">      <span class="built_in">super</span>();</span><br><span class="line">      <span class="built_in">this</span>.connector = connector;</span><br><span class="line"></span><br><span class="line">  &#125;</span><br></pre></td></tr></table></figure>
+<p><img src="/../images/tomcat-1-5.png" alt="在这里插入图片描述"></p>
+<h1 id="Container-上层容器"><a href="#Container-上层容器" class="headerlink" title="Container 上层容器"></a>Container 上层容器</h1><h3 id="分层容器-Container"><a href="#分层容器-Container" class="headerlink" title="分层容器 Container"></a>分层容器 Container</h3><p><code>Container</code> 容器负责上层的请求处理，分为4种，分别是 Engine、Host、Context、Wrapper。这四种容器通过组合方式实现了父子关系，上一级容器会持有下一级容器的引用，从而整体形成分层结构</p>
+<blockquote>
+<ol>
+<li><code>Engine</code><br>表示整个 Catalina 的 Servlet 引擎，用来管理多个虚拟站点，一个 Service 最多只能有一个 Engine，但是一个引擎可包含多个 Host，每个 Host 组件代表 Engine 中的一个虚拟主机</li>
+<li><code>Host</code><br>代表一个虚拟主机，或者说一个站点，可运行多个Web应用（一个 Context 代表一个Web应用），并负责初始化、启动和结束每个Web应用。客户端通常使用主机名来标识希望连接的服务器，该主机名会包含在 HTTP 请求头中。Tomcat 从 HTTP 请求头中提取出主机名，寻找名称匹配的主机。如果没有匹配，请求将发送至默认主机</li>
+<li><code>Context</code><br>表示一个Web应用程序，Tomcat 通过 Context 的 path 属性与请求的 URI 的匹配程度来确定一个Web应用处理该请求，一个Web应用可包含多个 Wrapper</li>
+<li><code>Wrapper</code><br>表示一个 Servlet，负责管理整个 Servlet 的生命周期，包括装载、初始化、资源回收等</li>
+</ol>
+</blockquote>
+<p>此处以容器对象的基类 <code>ContainerBase</code> 为例，简要介绍容器对象比较重要的公共属性：</p>
+<blockquote>
+<ol>
+<li><code>children</code>：子类容器的集合</li>
+<li><code>parent</code>：父级容器对象</li>
+<li><code>pipeline</code>: 容器内部的处理链对象，链路上的处理器都是 <code>Valve</code> 对象</li>
+</ol>
+</blockquote>
+<p><img src="/../images/tomcat-1-6.png" alt="在这里插入图片描述"></p>
+<h3 id="容器中的处理组件-Valve"><a href="#容器中的处理组件-Valve" class="headerlink" title="容器中的处理组件 Valve"></a>容器中的处理组件 Valve</h3><p><code>Valve</code> 属于容器对象的处理链 Pipeline 上的组件，<font style=background-color:#f8f840>实际上相当于 Tomcat 容器内部的过滤器</font>，每个容器对象创建时都会创建对应的 <code>Valve</code> 对象并将其添加到处理链中。所有进入容器的请求在一层层容器的 <code>Valve</code> 中经过，最终将被投进 Servlet 处理</p>
+<p><img src="/../images/tomcat-1-7.png" alt="在这里插入图片描述"></p>
+</article><div class="post-copyright"><div class="post-copyright__author"><span class="post-copyright-meta">文章作者: </span><span class="post-copyright-info"><a href="https://yang00-74.github.io">nathan.yang</a></span></div><div class="post-copyright__type"><span class="post-copyright-meta">文章链接: </span><span class="post-copyright-info"><a href="https://yang00-74.github.io/2023/06/12/Tomcat-1/">https://yang00-74.github.io/2023/06/12/Tomcat-1/</a></span></div><div class="post-copyright__notice"><span class="post-copyright-meta">版权声明: </span><span class="post-copyright-info">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank">CC BY-NC-SA 4.0</a> 许可协议。转载请注明来自 <a href="https://yang00-74.github.io" target="_blank">谈谈1974</a>！</span></div></div><div class="tag_share"><div class="post-meta__tag-list"><a class="post-meta__tags" href="/tags/Tomcat/">Tomcat</a></div><div class="post_share"><div class="social-share" data-image="https://i.loli.net/2021/02/24/5O1day2nriDzjSu.png" data-sites="facebook,twitter,wechat,weibo,qq"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/butterfly-extsrc/sharejs/dist/css/share.min.css" media="print" onload="this.media='all'"><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc/sharejs/dist/js/social-share.min.js" defer></script></div></div><nav class="pagination-post" id="pagination"><div class="prev-post pull-left"><a href="/2023/06/12/Tomcat-2/" title="Tomcat 9.0 源码分析(2)-连接器 Connector 的启动"><div class="cover" style="background: var(--default-bg-color)"></div><div class="pagination-info"><div class="label">上一篇</div><div class="prev_info">Tomcat 9.0 源码分析(2)-连接器 Connector 的启动</div></div></a></div><div class="next-post pull-right"><a href="/2023/06/09/Java-dynamic-proxy/" title="Java 动态代理的底层原理"><div class="cover" style="background: var(--default-bg-color)"></div><div class="pagination-info"><div class="label">下一篇</div><div class="next_info">Java 动态代理的底层原理</div></div></a></div></nav><div class="relatedPosts"><div class="headline"><i class="fas fa-thumbs-up fa-fw"></i><span>相关推荐</span></div><div class="relatedPosts-list"><div><a href="/2023/06/12/Tomcat-2/" title="Tomcat 9.0 源码分析(2)-连接器 Connector 的启动"><div class="cover" style="background: var(--default-bg-color)"></div><div class="content is-center"><div class="date"><i class="far fa-calendar-alt fa-fw"></i> 2023-06-12</div><div class="title">Tomcat 9.0 源码分析(2)-连接器 Connector 的启动</div></div></a></div></div></div></div><div class="aside-content" id="aside-content"><div class="card-widget card-info"><div class="is-center"><div class="avatar-img"><img src="https://i.loli.net/2021/02/24/5O1day2nriDzjSu.png" onerror="this.onerror=null;this.src='/img/friend_404.gif'" alt="avatar"/></div><div class="author-info__name">nathan.yang</div><div class="author-info__description"></div></div><div class="card-info-data site-data is-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">31</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">10</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">11</div></a></div><a id="card-info-btn" target="_blank" rel="noopener" href="https://github.com/yang00-74"><i class="fab fa-github"></i><span>关注我</span></a></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn fa-shake"></i><span>公告</span></div><div class="announcement_content">Welcome to nathan blog</div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="fas fa-stream"></i><span>目录</span><span class="toc-percentage"></span></div><div class="toc-content"><ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#Tomcat-%E6%9E%B6%E6%9E%84"><span class="toc-number">1.</span> <span class="toc-text">Tomcat 架构</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#Connector-%E5%BA%95%E5%B1%82%E8%BF%9E%E6%8E%A5%E5%99%A8"><span class="toc-number">2.</span> <span class="toc-text">Connector 底层连接器</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%8D%8F%E8%AE%AE%E5%A4%84%E7%90%86%E5%99%A8-ProtocolHandler"><span class="toc-number">2.0.1.</span> <span class="toc-text">协议处理器 ProtocolHandler</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#%E7%AB%AF%E7%82%B9-EndPoint"><span class="toc-number">2.0.1.1.</span> <span class="toc-text">端点 EndPoint</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E5%A4%84%E7%90%86%E5%99%A8-Processor"><span class="toc-number">2.0.1.2.</span> <span class="toc-text">处理器 Processor</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E9%80%82%E9%85%8D%E5%99%A8-Adapter"><span class="toc-number">2.0.2.</span> <span class="toc-text">适配器 Adapter</span></a></li></ol></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#Container-%E4%B8%8A%E5%B1%82%E5%AE%B9%E5%99%A8"><span class="toc-number">3.</span> <span class="toc-text">Container 上层容器</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%88%86%E5%B1%82%E5%AE%B9%E5%99%A8-Container"><span class="toc-number">3.0.1.</span> <span class="toc-text">分层容器 Container</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%AE%B9%E5%99%A8%E4%B8%AD%E7%9A%84%E5%A4%84%E7%90%86%E7%BB%84%E4%BB%B6-Valve"><span class="toc-number">3.0.2.</span> <span class="toc-text">容器中的处理组件 Valve</span></a></li></ol></li></ol></li></ol></div></div><div class="card-widget card-recent-post"><div class="item-headline"><i class="fas fa-history"></i><span>最新文章</span></div><div class="aside-list"><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2023/06/12/Tomcat-2/" title="Tomcat 9.0 源码分析(2)-连接器 Connector 的启动">Tomcat 9.0 源码分析(2)-连接器 Connector 的启动</a><time datetime="2023-06-12T08:58:30.000Z" title="发表于 2023-06-12 16:58:30">2023-06-12</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2023/06/12/Tomcat-1/" title="Tomcat 9.0 源码分析(1)-结构组成与核心组件">Tomcat 9.0 源码分析(1)-结构组成与核心组件</a><time datetime="2023-06-12T08:45:46.000Z" title="发表于 2023-06-12 16:45:46">2023-06-12</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2023/06/09/Java-dynamic-proxy/" title="Java 动态代理的底层原理">Java 动态代理的底层原理</a><time datetime="2023-06-09T03:32:15.000Z" title="发表于 2023-06-09 11:32:15">2023-06-09</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2023/06/09/Java-memory-high/" title="Java 服务内存占用过高的一次排查过程">Java 服务内存占用过高的一次排查过程</a><time datetime="2023-06-09T03:15:23.000Z" title="发表于 2023-06-09 11:15:23">2023-06-09</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2023/06/08/Redis-rdb/" title="Redis 持久化 RDB 详解">Redis 持久化 RDB 详解</a><time datetime="2023-06-08T08:23:11.000Z" title="发表于 2023-06-08 16:23:11">2023-06-08</time></div></div></div></div></div></div></main><footer id="footer" style="background: transparent"><div id="footer-wrap"><div class="copyright">&copy;2020 - 2023 By nathan.yang</div><div class="framework-info"><span>框架 </span><a target="_blank" rel="noopener" href="https://hexo.io">Hexo</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="noopener" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly</a></div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="readmode" type="button" title="阅读模式"><i class="fas fa-book-open"></i></button><button id="darkmode" type="button" title="浅色和深色模式转换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="单栏和双栏切换"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside_config" type="button" title="设置"><i class="fas fa-cog fa-spin"></i></button><button class="close" id="mobile-toc-button" type="button" title="目录"><i class="fas fa-list-ul"></i></button><button id="go-up" type="button" title="回到顶部"><span class="scroll-percent"></span><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/js/utils.js"></script><script src="/js/main.js"></script><script src="https://cdn.jsdelivr.net/npm/@fancyapps/ui/dist/fancybox/fancybox.umd.min.js"></script><div class="js-pjax"></div><script id="canvas_nest" defer="defer" color="0,0,255" opacity="0.7" zIndex="-1" count="99" mobile="false" src="https://cdn.jsdelivr.net/npm/butterfly-extsrc/dist/canvas-nest.min.js"></script><script id="click-show-text" src="https://cdn.jsdelivr.net/npm/butterfly-extsrc/dist/click-show-text.min.js" data-mobile="false" data-text="点,啥,呢" data-fontsize="15px" data-random="false" async="async"></script><script async data-pjax src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script></div></body></html>
