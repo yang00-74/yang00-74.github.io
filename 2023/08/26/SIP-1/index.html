@@ -7,7 +7,7 @@
 <meta property="og:locale" content="zh_CN">
 <meta property="og:image" content="https://i.loli.net/2021/02/24/5O1day2nriDzjSu.png">
 <meta property="article:published_time" content="2023-08-26T07:13:25.000Z">
-<meta property="article:modified_time" content="2023-08-27T08:17:09.070Z">
+<meta property="article:modified_time" content="2023-08-27T08:24:12.709Z">
 <meta property="article:author" content="nathan.yang">
 <meta property="article:tag" content="SIP 协议相关">
 <meta name="twitter:card" content="summary">
@@ -58,7 +58,7 @@
   isHome: false,
   isHighlightShrink: false,
   isToc: true,
-  postUpdate: '2023-08-27 16:17:09'
+  postUpdate: '2023-08-27 16:24:12'
 }</script><noscript><style type="text/css">
   #nav {
     opacity: 1
@@ -162,7 +162,7 @@
       }
     }
     detectApple()
-    })(window)</script><meta name="generator" content="Hexo 6.3.0"></head><body><div id="web_bg"></div><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="avatar-img is-center"><img src="https://i.loli.net/2021/02/24/5O1day2nriDzjSu.png" onerror="onerror=null;src='/img/friend_404.gif'" alt="avatar"/></div><div class="sidebar-site-data site-data is-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">35</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">13</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">16</div></a></div><hr/><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> 首页</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> 归档</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div></div></div></div><div class="post" id="body-wrap"><header class="not-top-img" id="page-header"><nav id="nav"><span id="blog-info"><a href="/" title="谈谈1974"><span class="site-name">谈谈1974</span></a></span><div id="menus"><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> 首页</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> 归档</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div></div><div id="toggle-menu"><a class="site-page" href="javascript:void(0);"><i class="fas fa-bars fa-fw"></i></a></div></div></nav></header><main class="layout" id="content-inner"><div id="post"><div id="post-info"><h1 class="post-title">SIP 协议路由规则详解</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">发表于</span><time class="post-meta-date-created" datetime="2023-08-26T07:13:25.000Z" title="发表于 2023-08-26 15:13:25">2023-08-26</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">更新于</span><time class="post-meta-date-updated" datetime="2023-08-27T08:17:09.070Z" title="更新于 2023-08-27 16:17:09">2023-08-27</time></span><span class="post-meta-categories"><span class="post-meta-separator">|</span><i class="fas fa-inbox fa-fw post-meta-icon"></i><a class="post-meta-categories" href="/categories/SIP/">SIP</a></span></div><div class="meta-secondline"><span class="post-meta-separator">|</span><span class="post-meta-pv-cv" id="" data-flag-title="SIP 协议路由规则详解"><i class="far fa-eye fa-fw post-meta-icon"></i><span class="post-meta-label">阅读量:</span><span id="busuanzi_value_page_pv"><i class="fa-solid fa-spinner fa-spin"></i></span></span></div></div></div><article class="post-content" id="article-container"><h1 id="SIP-路由关键字段"><a href="#SIP-路由关键字段" class="headerlink" title="SIP 路由关键字段"></a>SIP 路由关键字段</h1><p>SIP 协议实际上和 HTTP 类似，<font style=background-color:#f8f840>都是基于文本、可阅读的应用层协议</font>，二者的不同之处在于 <code>SIP 协议是有状态的</code>。在 SIP 协议中，影响报文路由的相关字段如下表所示，总结起来如下：</p>
+    })(window)</script><meta name="generator" content="Hexo 6.3.0"></head><body><div id="web_bg"></div><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="avatar-img is-center"><img src="https://i.loli.net/2021/02/24/5O1day2nriDzjSu.png" onerror="onerror=null;src='/img/friend_404.gif'" alt="avatar"/></div><div class="sidebar-site-data site-data is-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">35</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">13</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">16</div></a></div><hr/><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> 首页</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> 归档</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div></div></div></div><div class="post" id="body-wrap"><header class="not-top-img" id="page-header"><nav id="nav"><span id="blog-info"><a href="/" title="谈谈1974"><span class="site-name">谈谈1974</span></a></span><div id="menus"><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> 首页</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> 归档</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div></div><div id="toggle-menu"><a class="site-page" href="javascript:void(0);"><i class="fas fa-bars fa-fw"></i></a></div></div></nav></header><main class="layout" id="content-inner"><div id="post"><div id="post-info"><h1 class="post-title">SIP 协议路由规则详解</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">发表于</span><time class="post-meta-date-created" datetime="2023-08-26T07:13:25.000Z" title="发表于 2023-08-26 15:13:25">2023-08-26</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">更新于</span><time class="post-meta-date-updated" datetime="2023-08-27T08:24:12.709Z" title="更新于 2023-08-27 16:24:12">2023-08-27</time></span><span class="post-meta-categories"><span class="post-meta-separator">|</span><i class="fas fa-inbox fa-fw post-meta-icon"></i><a class="post-meta-categories" href="/categories/SIP/">SIP</a></span></div><div class="meta-secondline"><span class="post-meta-separator">|</span><span class="post-meta-pv-cv" id="" data-flag-title="SIP 协议路由规则详解"><i class="far fa-eye fa-fw post-meta-icon"></i><span class="post-meta-label">阅读量:</span><span id="busuanzi_value_page_pv"><i class="fa-solid fa-spinner fa-spin"></i></span></span></div></div></div><article class="post-content" id="article-container"><h1 id="SIP-路由关键字段"><a href="#SIP-路由关键字段" class="headerlink" title="SIP 路由关键字段"></a>SIP 路由关键字段</h1><p>SIP 协议实际上和 HTTP 类似，<font style=background-color:#f8f840>都是基于文本、可阅读的应用层协议</font>，二者的不同之处在于 <code>SIP 协议是有状态的</code>。在 SIP 协议中，影响报文路由的相关字段如下表所示，总结起来如下：</p>
 <blockquote>
 <ol>
 <li><code>SIP 请求（INVITE、ACK 等带 Method 的包）</code><br>请求路由同时受到 Request-URI 和 Route 头的影响，其中 Route 的优先级更高。Route 为之前请求的对应响应中的 Record-Route 复制而来，SIP 请求每抵达一个 SIP 服务器，该服务器就会将自己的地址从 Route 中移除；Request-URI 则会被之前的交互报文中对端的 Contact 替换</li>
@@ -178,27 +178,27 @@
 </tr>
 </thead>
 <tbody><tr>
-<td align="left">Request-URI</td>
-<td align="left">SIP 请求报文的请求行格式为 <code>METHOD Request-URI SIP-Version</code>，例如请求行 <font style=background-color:#f8f840>INVITE sip:<a href="mailto:&#57;&#64;&#x31;&#50;&#x37;&#46;&#x30;&#46;&#x30;&#46;&#x32;">&#57;&#64;&#x31;&#50;&#x37;&#46;&#x30;&#46;&#x30;&#46;&#x32;</a>:5080 SIP&#x2F;2.0 </font>中 sip:<a href="mailto:&#57;&#x40;&#x31;&#50;&#x37;&#46;&#48;&#46;&#48;&#x2e;&#50;">&#57;&#x40;&#x31;&#50;&#x37;&#46;&#48;&#46;&#48;&#x2e;&#50;</a>:5080 就是 Request-URI</td>
+<td align="left"><code>Request-URI</code></td>
+<td align="left">SIP 请求报文的请求行格式为 <code>METHOD Request-URI SIP-Version</code>，例如请求行 <font style=background-color:#f8f840>INVITE sip:<a href="mailto:&#57;&#64;&#x31;&#x32;&#x37;&#46;&#48;&#46;&#x30;&#46;&#x32;">&#57;&#64;&#x31;&#x32;&#x37;&#46;&#48;&#46;&#x30;&#46;&#x32;</a>:5080 SIP&#x2F;2.0 </font>中 sip:<a href="mailto:&#57;&#x40;&#x31;&#x32;&#x37;&#x2e;&#48;&#x2e;&#48;&#x2e;&#50;">&#57;&#x40;&#x31;&#x32;&#x37;&#x2e;&#48;&#x2e;&#48;&#x2e;&#50;</a>:5080 就是 Request-URI</td>
 <td align="left">Request-URI 标识了报文的目标地址，如果在当次请求之前 SIP 通信双方已经进行过交互，则之前响应中的 Contact 会被复制为 Request-URI。在路由规则上，如果报文中不存在 Route 字段，则请求会被直接发往 Request-URI 指向的地址</td>
 </tr>
 <tr>
-<td align="left">Route</td>
+<td align="left"><code>Route</code></td>
 <td align="left">SIP 请求报文的请求头，可存在多个</td>
 <td align="left">Route 字段标识了<font style=background-color:#f8f840> SIP 请求必须要经过的 SIP 服务器地址</font>，该字段受到在本次请求之前的响应中的 Record-Route 字段影响。SIP 请求每到达一个 Route 指向的 SIP 服务器，该 SIP 服务器就会从 Route 中移除自己的地址</td>
 </tr>
 <tr>
-<td align="left">Via</td>
+<td align="left"><code>Via</code></td>
 <td align="left">SIP 请求、响应报文的头，可存在多个</td>
 <td align="left">Via 被 SIP 服务器插入请求报文中，标识了请求经过的 SIP 服务器，可以用来检查路由环。该字段头只会影响当前请求的响应的路由，SIP 响应沿着 Via 从上到下原路返回，每经过一个 SIP 服务器，该服务器就会将响应报文 Via 中属于自己的地址移除</td>
 </tr>
 <tr>
-<td align="left">Record-Route</td>
+<td align="left"><code>Record-Route</code></td>
 <td align="left">SIP 请求、响应报文头，可存在多个</td>
 <td align="left">Record-Route 一般是被 SIP 代理服务器插入到请求中的，这个字段表明当前代理服务器关心这个 SIP 会话后续的请求，强制后续 ACK 、BYE 之类的请求必须要经过自己这边。该字段会随着响应报文回到最初发起请求的 SIP 端，并被复制到后续请求的 Route 头域中</td>
 </tr>
 <tr>
-<td align="left">Contact</td>
+<td align="left"><code>Contact</code></td>
 <td align="left">SIP 请求、响应报文的头</td>
 <td align="left">表明 SIP 终端的联系地址，请求响应的双方都会将自己的 Contact 放在报文中，该字段将会影响双方后续请求的 Request-URI</td>
 </tr>
@@ -206,17 +206,17 @@
 <h1 id="SIP-路由图解"><a href="#SIP-路由图解" class="headerlink" title="SIP 路由图解"></a>SIP 路由图解</h1><p>以下是一个 SIP 会话建立的交互时序图，其中涉及到了一个 FreeSWITCH 服务器、一个 SIP 代理服务器以及一个 SIP 终端，笔者将其大致划分为 3 个部分：</p>
 <blockquote>
 <ol>
-<li>INVITE 转发<ol>
-<li>INVITE 请求从 FreeSWITCH 服务器发出，此时请求报文中的 Request-URI 为 sip:<a href="mailto:&#57;&#64;&#49;&#50;&#x37;&#x2e;&#48;&#46;&#x30;&#46;&#50;">&#57;&#64;&#49;&#50;&#x37;&#x2e;&#48;&#46;&#x30;&#46;&#50;</a>:5080，Via 只有一个 127.0.0.1 表明请求只经过了一个 FreeSWITCH 服务器</li>
+<li><code>INVITE 转发</code><ol>
+<li>INVITE 请求从 FreeSWITCH 服务器发出，此时请求报文中的 Request-URI 为 sip:<a href="mailto:&#x39;&#x40;&#x31;&#x32;&#x37;&#x2e;&#48;&#46;&#48;&#x2e;&#50;">&#x39;&#x40;&#x31;&#x32;&#x37;&#x2e;&#48;&#46;&#48;&#x2e;&#50;</a>:5080，Via 只有一个 127.0.0.1 表明请求只经过了一个 FreeSWITCH 服务器</li>
 <li>SIP 代理服务收到 INVITE 请求，首先将自己的地址加入到 Via 中，随后又将其加入到 Record-Route 头表明自己关心这个会话的后续请求。最后，SIP 代理服务器将请求的 Request-URI 替换为目标 SIP 终端的真实地址，并按照路由规则将请求转发到当前 Request-URI 指向的 SIP 终端</li>
 </ol>
 </li>
-<li>200 响应<ol>
+<li><code>200 响应</code><ol>
 <li>SIP 终端收到 INVITE 请求后，首先开始振铃，并将 180 响应包通过 Via 记录的地址一层层返回。当用户接通后，SIP 终端才产生 200 响应报文，并将自身的 Contact 和收到的 INVITE 请求中携带的 Record-Route 一并封装到报文中，完成后沿着 Via 记录将响应送回到 SIP 代理服务器</li>
 <li>SIP 代理服务收到 200 响应后，首先将自身的地址从 Via 中移除，然后继续沿着 Via 将报文送回到 FreeSWITCH 服务器</li>
 </ol>
 </li>
-<li>ACK 转发<ol>
+<li><code>ACK 转发</code><ol>
 <li>FreeSWITCH 收到 200 响应后，判断 SIP 会话可以建立，则生成 ACK 包与 SIP 终端确认。此时之前 INVITE 请求对应的 200 响应中的 Contact 被作为 ACK 请求的 Request-URI，其中的 Record-Route 则被复制为 ACK 请求的 Route 头。ACK 请求报文生成完毕，按照 Route 头优先级高于 Request-URI 的路由规则，请求包被发往 SIP 代理服务器</li>
 <li>SIP 代理服务器收到 ACK 请求包，首先将自己的地址从 Route 中移除，此时 Route 中已经没有数据，则根据路由规则将请求转发给 Request-URI 指向的 SIP 终端即可</li>
 </ol>
